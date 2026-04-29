@@ -8,6 +8,9 @@ import com.gastracker.user_service.dto.response.AuthResponse;
 import com.gastracker.user_service.dto.response.UserResponse;
 import com.gastracker.user_service.service.helper.JwtHelper;
 import com.gastracker.user_service.service.transformer.UserTransformer;
+import com.gastracker.user_service.exception.DuplicateResourceException;
+import com.gastracker.user_service.exception.InvalidCredentialsException;
+import com.gastracker.user_service.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,10 +28,10 @@ public class UserService {
         String nic = request.getNic().toUpperCase();
 
         if (userRepository.existsByNic(nic)) {
-            throw new RuntimeException("An account already exists for this NIC");
+            throw new DuplicateResourceException("An account already exists for this NIC");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new DuplicateResourceException("Email already in use");
         }
 
         User user = User.builder()
@@ -51,10 +54,10 @@ public class UserService {
     public AuthResponse login(LoginRequest request) {
         String nic = request.getNic().toUpperCase();
         User user = userRepository.findByNic(nic)
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
 
         String token = jwtHelper.generateToken(user.getId(), user.getEmail(), user.getRole().name());
@@ -67,7 +70,7 @@ public class UserService {
 
     public UserResponse getUserById(String id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return userTransformer.toResponse(user);
     }
 }
