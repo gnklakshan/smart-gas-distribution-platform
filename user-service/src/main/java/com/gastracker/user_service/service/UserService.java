@@ -73,4 +73,11 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return userTransformer.toResponse(user);
     }
+
+    public void deleteUser(String id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User not found");
+        }
+        userRepository.deleteById(id);
+    }
 }
