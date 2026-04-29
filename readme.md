@@ -222,6 +222,55 @@ All requests go through the API Gateway at `http://localhost:8080`.
 | GET | `/api/v1/users/role/{role}` | Get users by role | ADMIN |
 | DELETE | `/api/v1/users/{id}` | Delete user | ADMIN |
 
+**Register** — NIC is the unique identifier; no two accounts can share the same NIC.
+
+```json
+POST /api/v1/users/register
+{
+  "nic": "123456789V",
+  "email": "alice@example.com",
+  "password": "secret123",
+  "name": "Alice Perera",
+  "role": "CITIZEN"
+}
+```
+
+NIC formats accepted:
+- Old format: 9 digits + `V` or `X` — e.g. `123456789V`
+- New format: 12 digits — e.g. `200012345678`
+
+**Login** — authenticate with NIC and password.
+
+```json
+POST /api/v1/users/login
+{
+  "nic": "123456789V",
+  "password": "secret123"
+}
+```
+
+Both return an `AuthResponse`:
+
+```json
+{
+  "token": "<JWT>",
+  "user": {
+    "id": "...",
+    "nic": "123456789V",
+    "email": "alice@example.com",
+    "name": "Alice Perera",
+    "role": "CITIZEN",
+    "createdAt": "2026-04-29T10:00:00"
+  }
+}
+```
+
+**Protected endpoints** — pass the token in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
 ### Inventory Service — `/api/v1/inventory`
 
 | Method | Endpoint | Description | Auth |
