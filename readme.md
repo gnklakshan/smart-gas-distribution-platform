@@ -215,14 +215,16 @@ All requests go through the API Gateway at `http://localhost:8080`.
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | GET | `/api/v1/users/test` | Service health check | No |
-| POST | `/api/v1/users/register` | Register new user | No |
+| POST | `/api/v1/users/register` | Citizen self-registration | No |
+| POST | `/api/v1/users/register/dealer` | Register a dealer | ADMIN |
 | POST | `/api/v1/users/login` | Login, returns JWT | No |
-| GET | `/api/v1/users/{id}` | Get user by ID | Yes |
-| PUT | `/api/v1/users/{id}` | Update user profile | Yes |
+| GET | `/api/v1/users/me` | Get own profile | Yes |
+| GET | `/api/v1/users/{id}` | Get user by ID | Own or ADMIN |
+| PUT | `/api/v1/users/{id}` | Update user profile | Own or ADMIN |
 | GET | `/api/v1/users/role/{role}` | Get users by role | ADMIN |
 | DELETE | `/api/v1/users/{id}` | Delete user | ADMIN |
 
-**Register** — NIC is the unique identifier; no two accounts can share the same NIC.
+**Citizen Registration** — public endpoint, role is always set to `CITIZEN`. NIC is the unique identifier; no two accounts can share the same NIC.
 
 ```json
 POST /api/v1/users/register
@@ -230,14 +232,31 @@ POST /api/v1/users/register
   "nic": "123456789V",
   "email": "alice@example.com",
   "password": "secret123",
-  "name": "Alice Perera",
-  "role": "CITIZEN"
+  "name": "Alice Perera"
 }
 ```
 
 NIC formats accepted:
 - Old format: 9 digits + `V` or `X` — e.g. `123456789V`
 - New format: 12 digits — e.g. `200012345678`
+
+**Dealer Registration** — ADMIN only. Role is always set to `DEALER`. Requires business details.
+
+```json
+POST /api/v1/users/register/dealer
+Authorization: Bearer <admin-token>
+
+{
+  "nic": "987654321X",
+  "email": "dealer@gasstation.lk",
+  "password": "secure456",
+  "name": "Kamal Silva",
+  "phone": "0771234567",
+  "address": "45/B Galle Road, Colombo 03",
+  "businessName": "Silva Gas Station",
+  "businessRegNo": "BRN-2024-00123"
+}
+```
 
 **Login** — authenticate with NIC and password.
 
@@ -249,27 +268,35 @@ POST /api/v1/users/login
 }
 ```
 
-Both return an `AuthResponse`:
+Both register and login return an `AuthResponse`:
 
 ```json
 {
   "token": "<JWT>",
   "user": {
-    "id": "...",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "nic": "123456789V",
     "email": "alice@example.com",
     "name": "Alice Perera",
     "role": "CITIZEN",
-    "createdAt": "2026-04-29T10:00:00"
+    "phone": null,
+    "address": null,
+    "businessName": null,
+    "businessRegNo": null,
+    "createdAt": "2026-04-30T10:00:00"
   }
 }
 ```
+
+For dealers, `phone`, `address`, `businessName`, and `businessRegNo` are populated.
 
 **Protected endpoints** — pass the token in the `Authorization` header:
 
 ```
 Authorization: Bearer <token>
 ```
+
+**Ownership rule** — `GET /{id}` and `PUT /{id}` enforce ownership: a CITIZEN or DEALER can only access their own profile. The user's UUID (returned at login) must match the `{id}` path variable. ADMIN bypasses this check.
 
 ### Inventory Service — `/api/v1/inventory`
 
