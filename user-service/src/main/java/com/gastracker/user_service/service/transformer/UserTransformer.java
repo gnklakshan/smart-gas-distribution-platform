@@ -14,6 +14,10 @@ public class UserTransformer {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
+                .phone(user.getPhone())
+                .address(user.getAddress())
+                .businessName(user.getBusinessName())
+                .businessRegNo(user.getBusinessRegNo())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

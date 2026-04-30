@@ -34,6 +34,12 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    // Dealer-only fields
+    private String phone;
+    private String address;
+    private String businessName;
+    private String businessRegNo;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -14,5 +14,9 @@ public class UserResponse {
     private String email;
     private String name;
     private Role role;
+    private String phone;
+    private String address;
+    private String businessName;
+    private String businessRegNo;
     private LocalDateTime createdAt;
 }

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
-public class RegisterRequest {
+public class RegisterDealerRequest {
 
     @NotBlank
     @Pattern(
@@ -24,4 +24,16 @@ public class RegisterRequest {
 
     @NotBlank
     private String name;
+
+    @NotBlank
+    private String phone;
+
+    @NotBlank
+    private String address;
+
+    @NotBlank
+    private String businessName;
+
+    @NotBlank
+    private String businessRegNo;
 }
