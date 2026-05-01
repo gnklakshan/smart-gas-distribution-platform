@@ -34,6 +34,14 @@ spring:
               filters:
                 - StripPrefix=0
 
+            # ── Allocation Service ────────────────
+            - id: allocation-service
+              uri: lb://allocation-service
+              predicates:
+                - Path=/api/v1/allocations/**
+              filters:
+                - StripPrefix=0
+
             # ── Queue Service ─────────────────────
             - id: queue-service
               uri: lb://queue-service

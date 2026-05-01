@@ -1,5 +1,47 @@
 services:
 
+  # ── MESSAGE BROKER ─────────────────────────
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - lpg-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc -w 2 localhost 2181 | grep -q imok"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - lpg-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   # ── DATABASES ──────────────────────────────
 
   postgres-user:
@@ -40,22 +82,41 @@ services:
       timeout: 5s
       retries: 5
 
-#  mongodb:
-#    image: mongo:7
-#    container_name: mongodb
-#    environment:
-#      MONGO_INITDB_DATABASE: queuedb
-#    ports:
-#      - "27017:27017"
-#    volumes:
-#      - mongodb-data:/data/db
-#    networks:
-#      - lpg-network
-#    healthcheck:
-#      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
+  postgres-allocation:
+    image: postgres:15
+    container_name: postgres-allocation
+    environment:
+      POSTGRES_DB: allocationdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-allocation-data:/var/lib/postgresql/data
+    networks:
+      - lpg-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_DATABASE: queuedb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - lpg-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ── DISCOVERY SERVER ───────────────────────
 
@@ -125,23 +186,51 @@ services:
       retries: 5
       start_period: 60s
 
+  allocation-service:
+    build: ./allocation-service
+    container_name: allocation-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-allocation:5432/allocationdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - lpg-network
+    depends_on:
+      postgres-allocation:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 #  queue-service:
 #    build: ./queue-service
 #    container_name: queue-service
 #    ports:
-#      - "8083:8083"
+#      - "8084:8084"
 #    environment:
 #      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/queuedb
+#      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 #      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
 #    networks:
 #      - lpg-network
 #    depends_on:
 #      mongodb:
 #        condition: service_healthy
+#      kafka:
+#        condition: service_healthy
 #      eureka-server:
 #        condition: service_healthy
-#      inventory-service:
-#        condition: service_started
 
   # ── API GATEWAY ────────────────────────────
 
@@ -168,7 +257,8 @@ services:
 volumes:
   postgres-user-data:
   postgres-inventory-data:
-#  mongodb-data:
+  postgres-allocation-data:
+  mongodb-data:
 
 # ── NETWORK ──────────────────────────────────
 networks:
