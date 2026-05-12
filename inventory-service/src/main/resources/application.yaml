@@ -26,6 +26,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
+jwt:
+  secret: your-256-bit-secret-key-here-make-it-long
+  expiration: 86400000
+
 management:
   endpoints:
     web:
