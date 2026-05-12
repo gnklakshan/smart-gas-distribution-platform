@@ -2,11 +2,71 @@
 
 ## Service Configuration
 
-- **Base URL:** `http://localhost:8082`
+- **Base URL (direct):** `http://localhost:8082`
+- **Base URL (recommended via gateway):** `http://localhost:8080`
 - **Service Name:** inventory-service
 - **Port:** 8082
 - **Database:** PostgreSQL at `localhost:5433/inventorydb`
 - **API Version:** v1
+
+---
+
+## Seeded Test Data
+
+The databases are already seeded and running in Docker.
+
+### Where to access the data
+
+- **Inventory API via Gateway:** `http://localhost:8080/api/v1/inventory`
+- **Inventory API direct:** `http://localhost:8082/api/v1/inventory`
+- **User login API via Gateway:** `http://localhost:8080/api/v1/users/login`
+- **Inventory database:** PostgreSQL on `localhost:5433`, database `inventorydb`
+- **User database:** PostgreSQL on `localhost:5432`, database `userdb`
+- **PostgreSQL credentials:** username `postgres`, password `postgres`
+
+### Shared seeded password
+
+All seeded users use the same password:
+
+```text
+Pass123!
+```
+
+### Seeded accounts
+
+| Role | Name | NIC | Email | User ID |
+|---|---|---|---|---|
+| ADMIN | System Admin | `199001230001` | `admin@gastracker.lk` | `11111111-1111-1111-1111-111111111111` |
+| DEALER | Silva Gas Station | `987654321V` | `dealer1@gastracker.lk` | `22222222-2222-2222-2222-222222222222` |
+| DEALER | Kandy Gas Center | `876543210V` | `dealer2@gastracker.lk` | `33333333-3333-3333-3333-333333333333` |
+| CITIZEN | John Citizen | `123456789V` | `citizen@gastracker.lk` | `44444444-4444-4444-4444-444444444444` |
+
+### Seeded inventory records
+
+| Dealer | Inventory ID | Dealer ID | Stock |
+|---|---|---|---|
+| Silva Gas Station | `934a62d3-0a28-4465-834c-bd355d29cd34` | `22222222-2222-2222-2222-222222222222` | `30` |
+| Kandy Gas Center | `55555555-5555-5555-5555-555555555555` | `33333333-3333-3333-3333-333333333333` | `62` |
+
+### Login request examples
+
+**Admin login**
+```json
+POST /api/v1/users/login
+{
+  "nic": "199001230001",
+  "password": "Pass123!"
+}
+```
+
+**Dealer login**
+```json
+POST /api/v1/users/login
+{
+  "nic": "987654321V",
+  "password": "Pass123!"
+}
+```
 
 ---
 
@@ -31,7 +91,7 @@
 
 ---
 
-## Planned Endpoints (To Be Implemented)
+## Available Endpoints
 
 ### 2. Create Inventory for Dealer
 
@@ -48,7 +108,7 @@
 **Sample Request Body:**
 ```json
 {
-  "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "dealerId": "22222222-2222-2222-2222-222222222222",
   "dealerName": "Silva Gas Station",
   "address": "45/B Galle Road, Colombo 03",
   "latitude": 6.9271,
@@ -60,14 +120,14 @@
 **Sample Response (201 Created):**
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+  "dealerId": "22222222-2222-2222-2222-222222222222",
   "dealerName": "Silva Gas Station",
   "address": "45/B Galle Road, Colombo 03",
   "latitude": 6.9271,
   "longitude": 79.8612,
   "availableStock": 45,
-  "lastUpdated": "2026-05-11T09:30:00"
+  "lastUpdated": "2026-05-12T09:32:25"
 }
 ```
 
@@ -88,20 +148,20 @@
 
 **Sample Request:**
 ```
-GET /api/v1/inventory/123e4567-e89b-12d3-a456-426614174000
+GET /api/v1/inventory/934a62d3-0a28-4465-834c-bd355d29cd34
 ```
 
 **Sample Response (200 OK):**
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+  "dealerId": "22222222-2222-2222-2222-222222222222",
   "dealerName": "Silva Gas Station",
   "address": "45/B Galle Road, Colombo 03",
   "latitude": 6.9271,
   "longitude": 79.8612,
-  "availableStock": 45,
-  "lastUpdated": "2026-05-11T09:30:00"
+  "availableStock": 30,
+  "lastUpdated": "2026-05-12T09:32:25"
 }
 ```
 
@@ -122,20 +182,20 @@ GET /api/v1/inventory/123e4567-e89b-12d3-a456-426614174000
 
 **Sample Request:**
 ```
-GET /api/v1/inventory/dealer/f47ac10b-58cc-4372-a567-0e02b2c3d479
+GET /api/v1/inventory/dealer/22222222-2222-2222-2222-222222222222
 ```
 
 **Sample Response (200 OK):**
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+  "dealerId": "22222222-2222-2222-2222-222222222222",
   "dealerName": "Silva Gas Station",
   "address": "45/B Galle Road, Colombo 03",
   "latitude": 6.9271,
   "longitude": 79.8612,
-  "availableStock": 45,
-  "lastUpdated": "2026-05-11T09:30:00"
+  "availableStock": 30,
+  "lastUpdated": "2026-05-12T09:32:25"
 }
 ```
 
@@ -156,24 +216,24 @@ GET /api/v1/inventory/dealer/f47ac10b-58cc-4372-a567-0e02b2c3d479
 ```json
 [
   {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+    "dealerId": "22222222-2222-2222-2222-222222222222",
     "dealerName": "Silva Gas Station",
     "address": "45/B Galle Road, Colombo 03",
     "latitude": 6.9271,
     "longitude": 79.8612,
-    "availableStock": 45,
-    "lastUpdated": "2026-05-11T09:30:00"
+    "availableStock": 30,
+    "lastUpdated": "2026-05-12T09:32:25"
   },
   {
-    "id": "223e4567-e89b-12d3-a456-426614174001",
-    "dealerId": "e47ac10b-58cc-4372-a567-0e02b2c3d470",
-    "dealerName": "Lanka Gases",
-    "address": "123 Main Street, Kandy",
+    "id": "55555555-5555-5555-5555-555555555555",
+    "dealerId": "33333333-3333-3333-3333-333333333333",
+    "dealerName": "Kandy Gas Center",
+    "address": "123 Peradeniya Road, Kandy",
     "latitude": 7.2906,
     "longitude": 80.6337,
     "availableStock": 62,
-    "lastUpdated": "2026-05-11T08:15:00"
+    "lastUpdated": "2026-05-12T09:20:00"
   }
 ]
 ```
@@ -204,24 +264,26 @@ GET /api/v1/inventory/nearby?lat=6.9271&lng=79.8612&radius=10
 ```json
 [
   {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+    "dealerId": "22222222-2222-2222-2222-222222222222",
     "dealerName": "Silva Gas Station",
     "address": "45/B Galle Road, Colombo 03",
     "latitude": 6.9271,
     "longitude": 79.8612,
-    "availableStock": 45,
-    "lastUpdated": "2026-05-11T09:30:00"
+    "availableStock": 30,
+    "lastUpdated": "2026-05-12T09:32:25",
+    "distanceKm": 0.0
   },
   {
-    "id": "223e4567-e89b-12d3-a456-426614174001",
-    "dealerId": "e47ac10b-58cc-4372-a567-0e02b2c3d470",
-    "dealerName": "Lanka Gases",
-    "address": "123 Main Street, Kandy",
-    "latitude": 7.1234,
+    "id": "55555555-5555-5555-5555-555555555555",
+    "dealerId": "33333333-3333-3333-3333-333333333333",
+    "dealerName": "Kandy Gas Center",
+    "address": "123 Peradeniya Road, Kandy",
+    "latitude": 7.2906,
     "longitude": 80.6337,
     "availableStock": 62,
-    "lastUpdated": "2026-05-11T08:15:00"
+    "lastUpdated": "2026-05-12T09:20:00",
+    "distanceKm": 99.58
   }
 ]
 ```
@@ -252,14 +314,14 @@ GET /api/v1/inventory/nearby?lat=6.9271&lng=79.8612&radius=10
 **Sample Response (200 OK):**
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "dealerId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+  "dealerId": "22222222-2222-2222-2222-222222222222",
   "dealerName": "Silva Gas Station",
   "address": "45/B Galle Road, Colombo 03",
   "latitude": 6.9271,
   "longitude": 79.8612,
   "availableStock": 30,
-  "lastUpdated": "2026-05-11T10:00:00"
+  "lastUpdated": "2026-05-12T09:32:25"
 }
 ```
 
@@ -318,20 +380,23 @@ All endpoints may return error responses in the following format:
 ## Postman Collection Quick Setup
 
 1. **Create a new collection** named "Inventory Service"
-2. **Set Base URL** variable to `http://localhost:8082`
-3. **Add Authorization variable** for JWT token obtained from user-service
+2. **Set Base URL** variable to `http://localhost:8080`
+3. **Add Authorization variable** for JWT token obtained from user-service login
 4. **Create requests** using the endpoints listed above
 
 ### Environment Variables to Set:
 ```
 {
-  "base_url": "http://localhost:8082",
+  "base_url": "http://localhost:8080",
   "jwt_token": "YOUR_JWT_TOKEN_HERE",
-  "inventory_id": "123e4567-e89b-12d3-a456-426614174000",
-  "dealer_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "inventory_id": "934a62d3-0a28-4465-834c-bd355d29cd34",
+  "dealer_id": "22222222-2222-2222-2222-222222222222",
   "user_latitude": 6.9271,
   "user_longitude": 79.8612,
-  "search_radius": 10
+  "search_radius": 10,
+  "admin_nic": "199001230001",
+  "dealer_nic": "987654321V",
+  "seed_password": "Pass123!"
 }
 ```
 
@@ -341,11 +406,12 @@ All endpoints may return error responses in the following format:
 
 1. **Start the service:** Ensure `docker-compose up -d` is running
 2. **Verify connectivity:** Test the `/api/v1/inventory/test` endpoint
-3. **Get JWT token:** From user-service login endpoint
-4. **Create inventory:** POST request with sample payload
-5. **Retrieve inventory:** GET requests to verify data
-6. **Update stock:** PUT request to modify available stock
-7. **Location search:** Test geolocation queries with different coordinates
+3. **Login as ADMIN:** `POST /api/v1/users/login` with NIC `199001230001` and password `Pass123!`
+4. **Create inventory:** `POST /api/v1/inventory` using the admin token
+5. **Login as DEALER:** `POST /api/v1/users/login` with NIC `987654321V` and password `Pass123!`
+6. **Retrieve inventory:** Test `GET /available`, `GET /dealer/{dealerId}`, and `GET /{id}`
+7. **Update stock:** `PUT /api/v1/inventory/{id}/stock` using the dealer token
+8. **Nearby search:** Test `/api/v1/inventory/nearby?lat=6.9271&lng=79.8612&radius=10`
 
 ---
 
