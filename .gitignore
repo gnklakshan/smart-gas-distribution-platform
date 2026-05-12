@@ -40,6 +40,13 @@ out/
 *.code-workspace
 
 # ===========================
+# AI assistant local metadata
+# ===========================
+.agents/
+.codex/
+.claude/
+
+# ===========================
 # Eclipse
 # ===========================
 .apt_generated
