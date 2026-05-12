@@ -253,6 +253,20 @@ services:
       retries: 5
       start_period: 60s
 
+  # ── FRONTEND ───────────────────────────────
+
+  frontend:
+    build:
+      context: ../gas-flow-hub
+    container_name: gas-flow-hub-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - lpg-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
 # ── VOLUMES ──────────────────────────────────
 volumes:
   postgres-user-data:

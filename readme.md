@@ -115,7 +115,45 @@ lpg-system/
 
 ## Getting Started
 
-### Option 1 — Docker Compose (Recommended)
+### Run Full System — Backend + Frontend
+
+Start the full system with one Docker Compose command.
+
+```bash
+cd "/home/ros/Downloads/distributed project/smart-gas-distribution-platform"
+docker compose up --build
+```
+
+Run in background:
+
+```bash
+cd "/home/ros/Downloads/distributed project/smart-gas-distribution-platform"
+docker compose up --build -d
+```
+
+This starts the frontend, backend services, databases, Kafka, Eureka, and the API Gateway.
+
+Important URLs:
+
+| URL | Description |
+|---|---|
+| http://localhost:3000 | Frontend application |
+| http://localhost:8761 | Eureka Dashboard |
+| http://localhost:8080 | API Gateway |
+| http://localhost:8080/actuator/health | API Gateway health check |
+
+The frontend container serves the TanStack Start app on port `3000`. Requests to `/api/...` are proxied to `api-gateway:8080` inside the Compose network.
+
+Stop the system with `Ctrl+C`. If it was started in detached mode, stop it with:
+
+```bash
+cd "/home/ros/Downloads/distributed project/smart-gas-distribution-platform"
+docker compose down
+```
+
+---
+
+### Option 1 — Backend Only With Docker Compose
 
 Starts all active services and databases with a single command.
 
