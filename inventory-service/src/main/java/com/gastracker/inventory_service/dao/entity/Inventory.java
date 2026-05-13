@@ -1,13 +1,6 @@
 package com.gastracker.inventory_service.dao.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,24 +13,20 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "inventory")
+@Table(name = "inventory", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"dealer_id", "cylinder_type_id"})
+})
 public class Inventory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "dealer_id", nullable = false)
     private String dealerId;
 
-    @Column(nullable = false)
-    private String dealerName;
-
-    @Column(nullable = false)
-    private String address;
-
-    private Double latitude;
-    private Double longitude;
+    @Column(name = "cylinder_type_id", nullable = false)
+    private String cylinderTypeId;
 
     @Column(nullable = false)
     private Integer availableStock;

@@ -13,5 +13,6 @@ public class AllocationConfirmedEvent {
 
     private String allocationId;
     private String dealerId;
+    private String cylinderTypeId;
     private Integer quantity;
 }

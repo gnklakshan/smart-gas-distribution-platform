@@ -1,6 +1,8 @@
 package com.gastracker.inventory_service.service;
 
+import com.gastracker.inventory_service.dao.entity.CylinderType;
 import com.gastracker.inventory_service.dao.entity.Inventory;
+import com.gastracker.inventory_service.dao.repository.CylinderTypeRepository;
 import com.gastracker.inventory_service.dao.repository.InventoryRepository;
 import com.gastracker.inventory_service.dto.request.CreateInventoryRequest;
 import com.gastracker.inventory_service.dto.request.UpdateStockRequest;
@@ -10,74 +12,66 @@ import com.gastracker.inventory_service.exception.ForbiddenOperationException;
 import com.gastracker.inventory_service.exception.ResourceNotFoundException;
 import com.gastracker.inventory_service.service.transformer.InventoryTransformer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
+    private final CylinderTypeRepository cylinderTypeRepository;
     private final InventoryTransformer inventoryTransformer;
 
     @Transactional
     public InventoryResponse createInventory(CreateInventoryRequest request) {
-        if (inventoryRepository.existsByDealerId(request.getDealerId())) {
-            throw new DuplicateResourceException("Inventory already exists for dealer: " + request.getDealerId());
+        if (inventoryRepository.existsByDealerIdAndCylinderTypeId(request.getDealerId(), request.getCylinderTypeId())) {
+            throw new DuplicateResourceException(
+                    "Inventory already exists for dealer: " + request.getDealerId() +
+                    " and cylinder type: " + request.getCylinderTypeId());
         }
+
+        CylinderType cylinderType = findCylinderType(request.getCylinderTypeId());
 
         Inventory inventory = Inventory.builder()
                 .dealerId(request.getDealerId())
-                .dealerName(request.getDealerName())
-                .address(request.getAddress())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
+                .cylinderTypeId(request.getCylinderTypeId())
                 .availableStock(request.getAvailableStock())
                 .build();
 
-        return inventoryTransformer.toResponse(inventoryRepository.save(inventory));
+        return inventoryTransformer.toResponse(inventoryRepository.save(inventory), cylinderType.getName());
     }
 
     @Transactional(readOnly = true)
     public InventoryResponse getInventoryById(String id) {
-        return inventoryTransformer.toResponse(findInventory(id));
+        Inventory inventory = findInventory(id);
+        CylinderType ct = findCylinderType(inventory.getCylinderTypeId());
+        return inventoryTransformer.toResponse(inventory, ct.getName());
     }
 
     @Transactional(readOnly = true)
-    public InventoryResponse getInventoryByDealerId(String dealerId) {
-        Inventory inventory = inventoryRepository.findByDealerId(dealerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for dealer: " + dealerId));
-        return inventoryTransformer.toResponse(inventory);
+    public List<InventoryResponse> getInventoryByDealerId(String dealerId) {
+        return inventoryRepository.findByDealerId(dealerId).stream()
+                .map(inv -> {
+                    String ctName = cylinderTypeRepository.findById(inv.getCylinderTypeId())
+                            .map(CylinderType::getName).orElse("Unknown");
+                    return inventoryTransformer.toResponse(inv, ctName);
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<InventoryResponse> getAvailableInventory() {
         return inventoryRepository.findByAvailableStockGreaterThan(0).stream()
-                .map(inventoryTransformer::toResponse)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<InventoryResponse> getNearbyInventory(double latitude, double longitude, double radiusKm) {
-        validateRadius(radiusKm);
-
-        return inventoryRepository.findByAvailableStockGreaterThan(0).stream()
-                .filter(inventory -> inventory.getLatitude() != null && inventory.getLongitude() != null)
-                .map(inventory -> {
-                    double distance = calculateDistance(
-                            latitude,
-                            longitude,
-                            inventory.getLatitude(),
-                            inventory.getLongitude()
-                    );
-                    return new NearbyInventory(inventory, distance);
+                .map(inv -> {
+                    String ctName = cylinderTypeRepository.findById(inv.getCylinderTypeId())
+                            .map(CylinderType::getName).orElse("Unknown");
+                    return inventoryTransformer.toResponse(inv, ctName);
                 })
-                .filter(result -> result.distanceKm() <= radiusKm)
-                .sorted(Comparator.comparingDouble(NearbyInventory::distanceKm))
-                .map(result -> inventoryTransformer.toResponseWithDistance(result.inventory(), roundDistance(result.distanceKm())))
                 .toList();
     }
 
@@ -90,14 +84,43 @@ public class InventoryService {
         }
 
         inventory.setAvailableStock(request.getAvailableStock());
-        return inventoryTransformer.toResponse(inventoryRepository.save(inventory));
+        CylinderType ct = findCylinderType(inventory.getCylinderTypeId());
+        return inventoryTransformer.toResponse(inventoryRepository.save(inventory), ct.getName());
     }
 
-    @Transactional(readOnly = true)
-    public List<InventoryResponse> getInventoryByLocation(String location) {
-        return inventoryRepository.findByAddressContainingIgnoreCase(location).stream()
-                .map(inventoryTransformer::toResponse)
-                .toList();
+    /**
+     * Called by Kafka consumer when allocation is confirmed (add stock).
+     */
+    @Transactional
+    public void addStock(String dealerId, String cylinderTypeId, int quantity) {
+        Inventory inventory = inventoryRepository.findByDealerIdAndCylinderTypeId(dealerId, cylinderTypeId)
+                .orElseGet(() -> {
+                    log.info("Creating new inventory record for dealer={} cylinderType={}", dealerId, cylinderTypeId);
+                    return inventoryRepository.save(Inventory.builder()
+                            .dealerId(dealerId)
+                            .cylinderTypeId(cylinderTypeId)
+                            .availableStock(0)
+                            .build());
+                });
+
+        inventory.setAvailableStock(inventory.getAvailableStock() + quantity);
+        inventoryRepository.save(inventory);
+        log.info("Added {} stock for dealer={} cylinderType={}, new total={}", quantity, dealerId, cylinderTypeId, inventory.getAvailableStock());
+    }
+
+    /**
+     * Called by Kafka consumer when queue pickup is completed (subtract stock).
+     */
+    @Transactional
+    public void subtractStock(String dealerId, String cylinderTypeId, int quantity) {
+        Inventory inventory = inventoryRepository.findByDealerIdAndCylinderTypeId(dealerId, cylinderTypeId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Inventory not found for dealer: " + dealerId + " cylinderType: " + cylinderTypeId));
+
+        int newStock = Math.max(0, inventory.getAvailableStock() - quantity);
+        inventory.setAvailableStock(newStock);
+        inventoryRepository.save(inventory);
+        log.info("Subtracted {} stock for dealer={} cylinderType={}, new total={}", quantity, dealerId, cylinderTypeId, newStock);
     }
 
     private Inventory findInventory(String id) {
@@ -105,26 +128,8 @@ public class InventoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found with id: " + id));
     }
 
-    private void validateRadius(double radiusKm) {
-        if (radiusKm <= 0) {
-            throw new IllegalArgumentException("radius must be greater than 0");
-        }
-    }
-
-    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-        double radiusOfEarthKm = 6371.0;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        return radiusOfEarthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    private double roundDistance(double distance) {
-        return Math.round(distance * 100.0) / 100.0;
-    }
-
-    private record NearbyInventory(Inventory inventory, double distanceKm) {
+    private CylinderType findCylinderType(String id) {
+        return cylinderTypeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cylinder type not found: " + id));
     }
 }

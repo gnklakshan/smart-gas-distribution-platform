@@ -34,14 +34,16 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
-    // Dealer-only fields
+    @Column(nullable = false)
     private String phone;
-    private String address;
-    private String businessName;
-    private String businessRegNo;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Dealer dealer;
 
     @PrePersist
     protected void onCreate() {

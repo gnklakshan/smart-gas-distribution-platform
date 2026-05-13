@@ -10,11 +10,8 @@ import java.time.LocalDateTime;
 public class InventoryResponse {
     private String id;
     private String dealerId;
-    private String dealerName;
-    private String address;
-    private Double latitude;
-    private Double longitude;
+    private String cylinderTypeId;
+    private String cylinderTypeName;
     private Integer availableStock;
     private LocalDateTime lastUpdated;
-    private Double distanceKm;
 }

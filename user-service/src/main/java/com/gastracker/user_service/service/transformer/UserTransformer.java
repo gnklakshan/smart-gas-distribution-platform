@@ -1,6 +1,8 @@
 package com.gastracker.user_service.service.transformer;
 
+import com.gastracker.user_service.dao.entity.Dealer;
 import com.gastracker.user_service.dao.entity.User;
+import com.gastracker.user_service.dto.response.DealerInfo;
 import com.gastracker.user_service.dto.response.UserResponse;
 import org.springframework.stereotype.Component;
 
@@ -8,17 +10,30 @@ import org.springframework.stereotype.Component;
 public class UserTransformer {
 
     public UserResponse toResponse(User user) {
-        return UserResponse.builder()
+        UserResponse.UserResponseBuilder builder = UserResponse.builder()
                 .id(user.getId())
                 .nic(user.getNic())
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
                 .phone(user.getPhone())
-                .address(user.getAddress())
-                .businessName(user.getBusinessName())
-                .businessRegNo(user.getBusinessRegNo())
-                .createdAt(user.getCreatedAt())
+                .createdAt(user.getCreatedAt());
+
+        if (user.getDealer() != null) {
+            builder.dealer(toDealerInfo(user.getDealer()));
+        }
+
+        return builder.build();
+    }
+
+    public DealerInfo toDealerInfo(Dealer dealer) {
+        return DealerInfo.builder()
+                .dealerId(dealer.getId())
+                .businessName(dealer.getBusinessName())
+                .businessRegNo(dealer.getBusinessRegNo())
+                .address(dealer.getAddress())
+                .latitude(dealer.getLatitude())
+                .longitude(dealer.getLongitude())
                 .build();
     }
 }

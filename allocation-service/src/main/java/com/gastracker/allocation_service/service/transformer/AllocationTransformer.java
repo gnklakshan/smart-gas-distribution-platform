@@ -11,7 +11,7 @@ public class AllocationTransformer {
         return AllocationResponse.builder()
                 .id(allocation.getId())
                 .dealerId(allocation.getDealerId())
-                .dealerName(allocation.getDealerName())
+                .cylinderTypeId(allocation.getCylinderTypeId())
                 .requestedQuantity(allocation.getRequestedQuantity())
                 .approvedQuantity(allocation.getApprovedQuantity())
                 .status(allocation.getStatus())

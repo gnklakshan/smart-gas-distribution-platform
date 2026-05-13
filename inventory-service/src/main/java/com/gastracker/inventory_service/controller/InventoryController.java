@@ -10,14 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -40,21 +33,13 @@ public class InventoryController {
     }
 
     @GetMapping("/dealer/{dealerId}")
-    public ResponseEntity<InventoryResponse> getInventoryByDealerId(@PathVariable String dealerId) {
+    public ResponseEntity<List<InventoryResponse>> getInventoryByDealerId(@PathVariable String dealerId) {
         return ResponseEntity.ok(inventoryService.getInventoryByDealerId(dealerId));
     }
 
     @GetMapping("/available")
     public ResponseEntity<List<InventoryResponse>> getAvailableInventory() {
         return ResponseEntity.ok(inventoryService.getAvailableInventory());
-    }
-
-    @GetMapping("/nearby")
-    public ResponseEntity<List<InventoryResponse>> getNearbyInventory(
-            @RequestParam("lat") double latitude,
-            @RequestParam("lng") double longitude,
-            @RequestParam(value = "radius", defaultValue = "10") double radiusKm) {
-        return ResponseEntity.ok(inventoryService.getNearbyInventory(latitude, longitude, radiusKm));
     }
 
     @PutMapping("/{id}/stock")
@@ -65,10 +50,5 @@ public class InventoryController {
             Authentication authentication) {
         String dealerId = (String) authentication.getPrincipal();
         return ResponseEntity.ok(inventoryService.updateStock(id, dealerId, request));
-    }
-
-    @GetMapping("/location/{location}")
-    public ResponseEntity<List<InventoryResponse>> getInventoryByLocation(@PathVariable String location) {
-        return ResponseEntity.ok(inventoryService.getInventoryByLocation(location));
     }
 }

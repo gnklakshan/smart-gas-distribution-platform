@@ -1,7 +1,7 @@
 INSERT INTO allocations (
     id,
     dealer_id,
-    dealer_name,
+    cylinder_type_id,
     requested_quantity,
     approved_quantity,
     status,
@@ -14,7 +14,7 @@ VALUES
     (
         '66666666-6666-6666-6666-666666666666',
         '22222222-2222-2222-2222-222222222222',
-        'Silva Gas Station',
+        'ct111111-1111-1111-1111-111111111111',
         100,
         80,
         'APPROVED',
@@ -26,7 +26,7 @@ VALUES
     (
         '77777777-7777-7777-7777-777777777777',
         '33333333-3333-3333-3333-333333333333',
-        'Kandy Gas Center',
+        'ct111111-1111-1111-1111-111111111111',
         75,
         NULL,
         'PENDING',
@@ -38,7 +38,7 @@ VALUES
 ON CONFLICT (id) DO UPDATE
 SET
     dealer_id = EXCLUDED.dealer_id,
-    dealer_name = EXCLUDED.dealer_name,
+    cylinder_type_id = EXCLUDED.cylinder_type_id,
     requested_quantity = EXCLUDED.requested_quantity,
     approved_quantity = EXCLUDED.approved_quantity,
     status = EXCLUDED.status,

@@ -15,8 +15,6 @@ public class UserResponse {
     private String name;
     private Role role;
     private String phone;
-    private String address;
-    private String businessName;
-    private String businessRegNo;
     private LocalDateTime createdAt;
+    private DealerInfo dealer;  // only present for DEALER role
 }

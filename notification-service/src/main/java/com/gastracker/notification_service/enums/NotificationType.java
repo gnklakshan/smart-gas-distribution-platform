@@ -1,0 +1,14 @@
+package com.gastracker.notification_service.enums;
+
+public enum NotificationType {
+    WELCOME,
+    ALLOCATION_REQUESTED,
+    ALLOCATION_APPROVED,
+    ALLOCATION_REJECTED,
+    ALLOCATION_CONFIRMED,
+    QUEUE_JOINED,
+    QUEUE_READY,
+    QUEUE_COMPLETED,
+    QUEUE_CANCELLED,
+    DEALER_REGISTERED
+}

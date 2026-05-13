@@ -1,3 +1,4 @@
+-- Seed users table (without dealer-specific fields)
 INSERT INTO users (
     id,
     nic,
@@ -6,9 +7,6 @@ INSERT INTO users (
     name,
     role,
     phone,
-    address,
-    business_name,
-    business_reg_no,
     created_at
 )
 VALUES
@@ -20,9 +18,6 @@ VALUES
         'System Admin',
         'ADMIN',
         '0770000000',
-        '1 Government Secretariat, Colombo 01',
-        'GasTracker Admin Office',
-        'ADM-0001',
         '2026-05-12 09:00:00'
     ),
     (
@@ -33,9 +28,6 @@ VALUES
         'Silva Gas Station',
         'DEALER',
         '0771234567',
-        '45/B Galle Road, Colombo 03',
-        'Silva Gas Distribution',
-        'REG-2026-001',
         '2026-05-12 09:05:00'
     ),
     (
@@ -46,9 +38,6 @@ VALUES
         'Kandy Gas Center',
         'DEALER',
         '0772345678',
-        '123 Peradeniya Road, Kandy',
-        'Kandy Gas Center',
-        'REG-2026-002',
         '2026-05-12 09:10:00'
     ),
     (
@@ -59,9 +48,6 @@ VALUES
         'John Citizen',
         'CITIZEN',
         '0773456789',
-        '12 Lake Drive, Colombo 07',
-        NULL,
-        NULL,
         '2026-05-12 09:15:00'
     )
 ON CONFLICT (nic) DO UPDATE
@@ -72,7 +58,42 @@ SET
     name = EXCLUDED.name,
     role = EXCLUDED.role,
     phone = EXCLUDED.phone,
-    address = EXCLUDED.address,
+    created_at = EXCLUDED.created_at;
+
+-- Seed dealers table (1-to-1 with users)
+INSERT INTO dealers (
+    id,
+    user_id,
+    business_name,
+    business_reg_no,
+    address,
+    latitude,
+    longitude
+)
+VALUES
+    (
+        'dd111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+        'Silva Gas Distribution',
+        'REG-2026-001',
+        '45/B Galle Road, Colombo 03',
+        6.9271,
+        79.8612
+    ),
+    (
+        'dd222222-2222-2222-2222-222222222222',
+        '33333333-3333-3333-3333-333333333333',
+        'Kandy Gas Center',
+        'REG-2026-002',
+        '123 Peradeniya Road, Kandy',
+        7.2906,
+        80.6337
+    )
+ON CONFLICT (user_id) DO UPDATE
+SET
+    id = EXCLUDED.id,
     business_name = EXCLUDED.business_name,
     business_reg_no = EXCLUDED.business_reg_no,
-    created_at = EXCLUDED.created_at;
+    address = EXCLUDED.address,
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude;

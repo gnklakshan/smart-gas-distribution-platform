@@ -1,6 +1,8 @@
 package com.gastracker.user_service.service;
 
+import com.gastracker.user_service.dao.entity.Dealer;
 import com.gastracker.user_service.dao.entity.User;
+import com.gastracker.user_service.dao.repository.DealerRepository;
 import com.gastracker.user_service.dao.repository.UserRepository;
 import com.gastracker.user_service.dto.request.LoginRequest;
 import com.gastracker.user_service.dto.request.RegisterDealerRequest;
@@ -9,26 +11,38 @@ import com.gastracker.user_service.dto.request.UpdateUserRequest;
 import com.gastracker.user_service.dto.response.AuthResponse;
 import com.gastracker.user_service.dto.response.UserResponse;
 import com.gastracker.user_service.enums.Role;
+import com.gastracker.user_service.event.DealerRegisteredEvent;
+import com.gastracker.user_service.event.UserRegisteredEvent;
 import com.gastracker.user_service.exception.DuplicateResourceException;
 import com.gastracker.user_service.exception.InvalidCredentialsException;
 import com.gastracker.user_service.exception.ResourceNotFoundException;
 import com.gastracker.user_service.service.helper.JwtHelper;
 import com.gastracker.user_service.service.transformer.UserTransformer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String TOPIC_USER_REGISTERED = "user.registered";
+    private static final String TOPIC_DEALER_REGISTERED = "dealer.registered";
+
     private final UserRepository userRepository;
+    private final DealerRepository dealerRepository;
     private final JwtHelper jwtHelper;
     private final UserTransformer userTransformer;
     private final PasswordEncoder passwordEncoder;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         String nic = request.getNic().toUpperCase();
 
@@ -44,11 +58,15 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
+                .phone(request.getPhone())
                 .role(Role.CITIZEN)
                 .build();
 
         user = userRepository.save(user);
         String token = jwtHelper.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+
+        // Publish Kafka event
+        publishUserRegisteredEvent(user);
 
         return AuthResponse.builder()
                 .token(token)
@@ -56,6 +74,7 @@ public class UserService {
                 .build();
     }
 
+    @Transactional
     public AuthResponse registerDealer(RegisterDealerRequest request) {
         String nic = request.getNic().toUpperCase();
 
@@ -65,6 +84,9 @@ public class UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already in use");
         }
+        if (dealerRepository.existsByBusinessRegNo(request.getBusinessRegNo())) {
+            throw new DuplicateResourceException("Business registration number already in use");
+        }
 
         User user = User.builder()
                 .nic(nic)
@@ -73,13 +95,27 @@ public class UserService {
                 .name(request.getName())
                 .role(Role.DEALER)
                 .phone(request.getPhone())
-                .address(request.getAddress())
-                .businessName(request.getBusinessName())
-                .businessRegNo(request.getBusinessRegNo())
                 .build();
 
         user = userRepository.save(user);
+
+        Dealer dealer = Dealer.builder()
+                .user(user)
+                .businessName(request.getBusinessName())
+                .businessRegNo(request.getBusinessRegNo())
+                .address(request.getAddress())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .build();
+
+        dealer = dealerRepository.save(dealer);
+        user.setDealer(dealer);
+
         String token = jwtHelper.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+
+        // Publish Kafka events
+        publishUserRegisteredEvent(user);
+        publishDealerRegisteredEvent(user, dealer);
 
         return AuthResponse.builder()
                 .token(token)
@@ -110,6 +146,7 @@ public class UserService {
         return userTransformer.toResponse(user);
     }
 
+    @Transactional
     public UserResponse updateUser(String id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -122,8 +159,6 @@ public class UserService {
         user.setEmail(request.getEmail());
 
         if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getAddress() != null) user.setAddress(request.getAddress());
-        if (request.getBusinessName() != null) user.setBusinessName(request.getBusinessName());
 
         return userTransformer.toResponse(userRepository.save(user));
     }
@@ -139,5 +174,42 @@ public class UserService {
             throw new ResourceNotFoundException("User not found");
         }
         userRepository.deleteById(id);
+    }
+
+    // ── Kafka event publishers ──────────────────────────────────────────────
+
+    private void publishUserRegisteredEvent(User user) {
+        UserRegisteredEvent event = UserRegisteredEvent.builder()
+                .userId(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .build();
+
+        kafkaTemplate.send(TOPIC_USER_REGISTERED, event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish user.registered for userId={}: {}", user.getId(), ex.getMessage());
+                    } else {
+                        log.info("Published user.registered for userId={}", user.getId());
+                    }
+                });
+    }
+
+    private void publishDealerRegisteredEvent(User user, Dealer dealer) {
+        DealerRegisteredEvent event = DealerRegisteredEvent.builder()
+                .userId(user.getId())
+                .dealerId(dealer.getId())
+                .businessName(dealer.getBusinessName())
+                .build();
+
+        kafkaTemplate.send(TOPIC_DEALER_REGISTERED, event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish dealer.registered for dealerId={}: {}", dealer.getId(), ex.getMessage());
+                    } else {
+                        log.info("Published dealer.registered for dealerId={}", dealer.getId());
+                    }
+                });
     }
 }

@@ -7,7 +7,10 @@ import com.gastracker.allocation_service.dto.request.ApproveRequest;
 import com.gastracker.allocation_service.dto.request.RejectRequest;
 import com.gastracker.allocation_service.dto.response.AllocationResponse;
 import com.gastracker.allocation_service.enums.AllocationStatus;
+import com.gastracker.allocation_service.event.AllocationApprovedEvent;
 import com.gastracker.allocation_service.event.AllocationConfirmedEvent;
+import com.gastracker.allocation_service.event.AllocationRejectedEvent;
+import com.gastracker.allocation_service.event.AllocationRequestedEvent;
 import com.gastracker.allocation_service.exception.InvalidStateException;
 import com.gastracker.allocation_service.exception.ResourceNotFoundException;
 import com.gastracker.allocation_service.service.transformer.AllocationTransformer;
@@ -26,23 +29,36 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AllocationService {
 
+    private static final String TOPIC_ALLOCATION_REQUESTED = "allocation.requested";
+    private static final String TOPIC_ALLOCATION_APPROVED = "allocation.approved";
+    private static final String TOPIC_ALLOCATION_REJECTED = "allocation.rejected";
     private static final String TOPIC_ALLOCATION_CONFIRMED = "allocation.confirmed";
 
     private final AllocationRepository allocationRepository;
     private final AllocationTransformer allocationTransformer;
-    private final KafkaTemplate<String, AllocationConfirmedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     // ── DEALER: submit a new gas allocation request ────────────────────────
     @Transactional
     public AllocationResponse requestAllocation(String dealerId, AllocationRequest request) {
         Allocation allocation = Allocation.builder()
                 .dealerId(dealerId)
-                .dealerName(request.getDealerName())
+                .cylinderTypeId(request.getCylinderTypeId())
                 .requestedQuantity(request.getRequestedQuantity())
                 .status(AllocationStatus.PENDING)
                 .build();
 
-        return allocationTransformer.toResponse(allocationRepository.save(allocation));
+        allocation = allocationRepository.save(allocation);
+
+        // Publish Kafka event
+        publishEvent(TOPIC_ALLOCATION_REQUESTED, AllocationRequestedEvent.builder()
+                .allocationId(allocation.getId())
+                .dealerId(allocation.getDealerId())
+                .cylinderTypeId(allocation.getCylinderTypeId())
+                .requestedQuantity(allocation.getRequestedQuantity())
+                .build());
+
+        return allocationTransformer.toResponse(allocation);
     }
 
     // ── ADMIN: approve a pending allocation ────────────────────────────────
@@ -57,8 +73,17 @@ public class AllocationService {
         allocation.setApprovedQuantity(request.getApprovedQuantity());
         allocation.setStatus(AllocationStatus.APPROVED);
         allocation.setResolvedAt(LocalDateTime.now());
+        allocation = allocationRepository.save(allocation);
 
-        return allocationTransformer.toResponse(allocationRepository.save(allocation));
+        // Publish Kafka event
+        publishEvent(TOPIC_ALLOCATION_APPROVED, AllocationApprovedEvent.builder()
+                .allocationId(allocation.getId())
+                .dealerId(allocation.getDealerId())
+                .cylinderTypeId(allocation.getCylinderTypeId())
+                .approvedQuantity(allocation.getApprovedQuantity())
+                .build());
+
+        return allocationTransformer.toResponse(allocation);
     }
 
     // ── ADMIN: reject a pending allocation ────────────────────────────────
@@ -73,8 +98,17 @@ public class AllocationService {
         allocation.setRejectionReason(request.getReason());
         allocation.setStatus(AllocationStatus.REJECTED);
         allocation.setResolvedAt(LocalDateTime.now());
+        allocation = allocationRepository.save(allocation);
 
-        return allocationTransformer.toResponse(allocationRepository.save(allocation));
+        // Publish Kafka event
+        publishEvent(TOPIC_ALLOCATION_REJECTED, AllocationRejectedEvent.builder()
+                .allocationId(allocation.getId())
+                .dealerId(allocation.getDealerId())
+                .cylinderTypeId(allocation.getCylinderTypeId())
+                .reason(request.getReason())
+                .build());
+
+        return allocationTransformer.toResponse(allocation);
     }
 
     // ── DEALER: confirm physical delivery — publishes Kafka event ──────────
@@ -93,21 +127,13 @@ public class AllocationService {
         allocation.setDeliveredAt(LocalDateTime.now());
         allocationRepository.save(allocation);
 
-        AllocationConfirmedEvent event = AllocationConfirmedEvent.builder()
+        // Publish Kafka event — consumed by inventory-service to add stock
+        publishEvent(TOPIC_ALLOCATION_CONFIRMED, AllocationConfirmedEvent.builder()
                 .allocationId(allocation.getId())
                 .dealerId(allocation.getDealerId())
+                .cylinderTypeId(allocation.getCylinderTypeId())
                 .quantity(allocation.getApprovedQuantity())
-                .build();
-
-        kafkaTemplate.send(TOPIC_ALLOCATION_CONFIRMED, event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish allocation.confirmed for allocationId={}: {}", id, ex.getMessage());
-                    } else {
-                        log.info("Published allocation.confirmed for allocationId={} dealerId={} qty={}",
-                                id, allocation.getDealerId(), allocation.getApprovedQuantity());
-                    }
-                });
+                .build());
 
         return allocationTransformer.toResponse(allocation);
     }
@@ -134,9 +160,20 @@ public class AllocationService {
                 .stream().map(allocationTransformer::toResponse).toList();
     }
 
-    // ── Private helper ─────────────────────────────────────────────────────
+    // ── Private helpers ─────────────────────────────────────────────────────
     private Allocation findById(String id) {
         return allocationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Allocation not found: " + id));
+    }
+
+    private void publishEvent(String topic, Object event) {
+        kafkaTemplate.send(topic, event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish to {}: {}", topic, ex.getMessage());
+                    } else {
+                        log.info("Published event to {}", topic);
+                    }
+                });
     }
 }

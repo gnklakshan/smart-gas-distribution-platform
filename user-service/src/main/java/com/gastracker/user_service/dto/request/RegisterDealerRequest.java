@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class RegisterDealerRequest {
 
@@ -36,4 +38,8 @@ public class RegisterDealerRequest {
 
     @NotBlank
     private String businessRegNo;
+
+    private BigDecimal latitude;
+
+    private BigDecimal longitude;
 }

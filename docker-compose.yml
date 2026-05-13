@@ -52,7 +52,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5440:5432"
     volumes:
       - postgres-user-data:/var/lib/postgresql/data
     networks:
@@ -101,19 +101,40 @@ services:
       timeout: 5s
       retries: 5
 
-  mongodb:
-    image: mongo:7
-    container_name: mongodb
+  postgres-queue:
+    image: postgres:15
+    container_name: postgres-queue
     environment:
-      MONGO_INITDB_DATABASE: queuedb
+      POSTGRES_DB: queuedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "27017:27017"
+      - "5435:5432"
     volumes:
-      - mongodb-data:/data/db
+      - postgres-queue-data:/var/lib/postgresql/data
     networks:
       - lpg-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-notification:
+    image: postgres:15
+    container_name: postgres-notification
+    environment:
+      POSTGRES_DB: notificationdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres-notification-data:/var/lib/postgresql/data
+    networks:
+      - lpg-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,11 +166,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/userdb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     networks:
       - lpg-network
     depends_on:
       postgres-user:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
@@ -169,11 +193,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-inventory:5432/inventorydb
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     networks:
       - lpg-network
     depends_on:
       postgres-inventory:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
@@ -203,7 +230,7 @@ services:
       postgres-allocation:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     healthcheck:
@@ -213,24 +240,59 @@ services:
       retries: 5
       start_period: 60s
 
-#  queue-service:
-#    build: ./queue-service
-#    container_name: queue-service
-#    ports:
-#      - "8084:8084"
-#    environment:
-#      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/queuedb
-#      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-#      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-#    networks:
-#      - lpg-network
-#    depends_on:
-#      mongodb:
-#        condition: service_healthy
-#      kafka:
-#        condition: service_healthy
-#      eureka-server:
-#        condition: service_healthy
+  queue-service:
+    build: ./queue-service
+    container_name: queue-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-queue:5432/queuedb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - lpg-network
+    depends_on:
+      postgres-queue:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-notification:5432/notificationdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - lpg-network
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # ── API GATEWAY ────────────────────────────
 
@@ -272,7 +334,8 @@ volumes:
   postgres-user-data:
   postgres-inventory-data:
   postgres-allocation-data:
-  mongodb-data:
+  postgres-queue-data:
+  postgres-notification-data:
 
 # ── NETWORK ──────────────────────────────────
 networks:

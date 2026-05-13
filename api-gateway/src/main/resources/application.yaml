@@ -34,6 +34,14 @@ spring:
               filters:
                 - StripPrefix=0
 
+            # ── Cylinder Types (Inventory Service) ─
+            - id: cylinder-types
+              uri: lb://inventory-service
+              predicates:
+                - Path=/api/v1/cylinder-types/**
+              filters:
+                - StripPrefix=0
+
             # ── Allocation Service ────────────────
             - id: allocation-service
               uri: lb://allocation-service
@@ -47,6 +55,14 @@ spring:
               uri: lb://queue-service
               predicates:
                 - Path=/api/v1/queue/**
+              filters:
+                - StripPrefix=0
+
+            # ── Notification Service ─────────────
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/v1/notifications/**
               filters:
                 - StripPrefix=0
 

@@ -14,8 +14,5 @@ public class UpdateUserRequest {
     @Email
     private String email;
 
-    // Optional — only relevant for dealers
     private String phone;
-    private String address;
-    private String businessName;
 }

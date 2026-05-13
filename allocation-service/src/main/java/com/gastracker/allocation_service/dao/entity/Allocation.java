@@ -25,7 +25,7 @@ public class Allocation {
     private String dealerId;            // UUID from user-service (JWT principal)
 
     @Column(nullable = false)
-    private String dealerName;
+    private String cylinderTypeId;      // UUID of the cylinder type
 
     @Column(nullable = false)
     private Integer requestedQuantity;
@@ -36,6 +36,7 @@ public class Allocation {
     @Column(nullable = false)
     private AllocationStatus status;
 
+    @Column(columnDefinition = "TEXT")
     private String rejectionReason;     // set by admin on rejection
 
     @Column(nullable = false, updatable = false)

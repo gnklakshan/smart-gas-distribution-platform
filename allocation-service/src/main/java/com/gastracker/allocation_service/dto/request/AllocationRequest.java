@@ -8,10 +8,10 @@ import lombok.Data;
 @Data
 public class AllocationRequest {
 
+    @NotBlank(message = "Cylinder type ID must not be blank")
+    private String cylinderTypeId;
+
     @NotNull
     @Min(value = 1, message = "Requested quantity must be at least 1")
     private Integer requestedQuantity;
-
-    @NotBlank(message = "Dealer name must not be blank")
-    private String dealerName;
 }

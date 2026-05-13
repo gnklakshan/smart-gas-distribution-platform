@@ -1,0 +1,3 @@
+-- No seed data needed for notifications.
+-- Notifications are created automatically by the Kafka event consumer.
+-- The table is auto-created by Hibernate ddl-auto: update.

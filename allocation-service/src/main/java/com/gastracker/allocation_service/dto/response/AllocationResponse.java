@@ -12,7 +12,7 @@ public class AllocationResponse {
 
     private String id;
     private String dealerId;
-    private String dealerName;
+    private String cylinderTypeId;
     private Integer requestedQuantity;
     private Integer approvedQuantity;
     private AllocationStatus status;

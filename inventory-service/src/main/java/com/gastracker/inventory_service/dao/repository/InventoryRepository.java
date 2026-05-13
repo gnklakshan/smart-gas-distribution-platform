@@ -8,11 +8,13 @@ import java.util.Optional;
 
 public interface InventoryRepository extends JpaRepository<Inventory, String> {
 
-    Optional<Inventory> findByDealerId(String dealerId);
+    List<Inventory> findByDealerId(String dealerId);
 
-    boolean existsByDealerId(String dealerId);
+    Optional<Inventory> findByDealerIdAndCylinderTypeId(String dealerId, String cylinderTypeId);
+
+    boolean existsByDealerIdAndCylinderTypeId(String dealerId, String cylinderTypeId);
 
     List<Inventory> findByAvailableStockGreaterThan(int availableStock);
 
-    List<Inventory> findByAddressContainingIgnoreCase(String location);
+    List<Inventory> findByCylinderTypeId(String cylinderTypeId);
 }
