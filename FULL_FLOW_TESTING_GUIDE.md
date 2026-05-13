@@ -19,16 +19,85 @@
 - **Docker Desktop** running
 - **Postman** or **cURL** for API testing
 - **TablePlus** for database inspection
+- **Make** (optional) — for one-shot commands. Install via: `choco install make` or `scoop install make`
 
 ---
 
 ## 2. Starting All Services
 
-### Step 1: Start Infrastructure (Docker Compose)
+### 🚀 Quick Start with Makefile (One-Shot Commands)
+
+If you have `make` installed, use these shortcuts from the project root:
 
 ```bash
 cd "c:\fyp\fyp\testing codes\smart-gas-distribution-platform"
-docker-compose up -d
+```
+
+| Command | What it does |
+|---|---|
+| `make run-all` | **⭐ One-shot: starts infra + all 7 services** in separate windows |
+| `make dev` | Starts infra only, prints instructions to run services manually |
+| `make up` | Builds all JARs + starts everything inside Docker |
+| `make build` | Builds all service JARs (no start) |
+| `make infra` | Starts only databases + Kafka |
+| `make health` | Checks health of all services |
+| `make stop` | Stops all Docker containers |
+| `make clean` | Stops containers + deletes all DB data (fresh start) |
+| `make ps` | Shows running containers |
+| `make logs` | Tail Docker container logs |
+| `make kafka-topics` | Lists all Kafka topics |
+| `make restart` | Full restart (stop + rebuild + start in Docker) |
+| `make help` | Show all available commands |
+
+**One-shot to start everything locally (recommended for dev):**
+```bash
+make run-all
+```
+This will:
+1. Start all databases + Kafka in Docker
+2. Wait for them to be healthy
+3. Launch Eureka discovery server (waits 30s for startup)
+4. Launch all 6 microservices in separate terminal windows
+5. Each window shows live logs for that service
+
+**One-shot to start everything in Docker:**
+```bash
+make up
+```
+This will:
+1. Build all 7 service JARs (`mvn clean package -DskipTests`)
+2. Build Docker images from Dockerfiles
+3. Start all containers (infra + services)
+
+**After starting, verify:**
+```bash
+make health
+```
+
+---
+
+### Manual Setup (Without Make)
+
+There are **two ways** to run the platform manually. Pick one:
+
+| | Option A (Recommended for Dev) | Option B (Fully Dockerized) |
+|---|---|---|
+| **Infrastructure** | Docker Compose | Docker Compose |
+| **Spring Boot services** | Run locally (`mvn spring-boot:run`) | Run inside Docker containers |
+| **Build step** | Not needed (Maven compiles on the fly) | Must run `mvn package` first for each service |
+| **Debugging** | Easy (IDE breakpoints, hot-reload) | Harder (need to rebuild image each change) |
+
+---
+
+### Option A: Local Development (Recommended)
+
+#### Step 1: Start ONLY Infrastructure via Docker Compose
+
+This starts **only** the databases + Kafka — NOT the Spring Boot services:
+
+```bash
+cd "c:\fyp\fyp\testing codes\smart-gas-distribution-platform"
+docker-compose up -d zookeeper kafka postgres-user postgres-inventory postgres-allocation postgres-queue postgres-notification
 ```
 
 Wait for all containers to be healthy:
@@ -49,15 +118,7 @@ You should see these containers running:
 | `postgres-queue` | 5435 | healthy |
 | `postgres-notification` | 5436 | healthy |
 
-> **Note:** Only start the database + Kafka containers first. Run the Spring Boot services locally from your IDE or terminal.
-
-If you only want infrastructure containers (without building service images):
-
-```bash
-docker-compose up -d zookeeper kafka postgres-user postgres-inventory postgres-allocation postgres-queue postgres-notification
-```
-
-### Step 2: Start Discovery Server (Eureka)
+#### Step 2: Start Discovery Server (Eureka)
 
 ```bash
 cd discovery-server
@@ -66,7 +127,9 @@ mvn spring-boot:run
 
 Wait until you see: `Started DiscoveryServerApplication` and verify at: http://localhost:8761
 
-### Step 3: Start Each Microservice (in separate terminals)
+#### Step 3: Start Each Microservice (in separate terminals)
+
+Open **6 separate terminals** from the project root directory:
 
 **Terminal 1 — User Service (port 8081):**
 ```bash
@@ -103,6 +166,54 @@ mvn spring-boot:run
 cd api-gateway
 mvn spring-boot:run
 ```
+
+> 💡 **Alternatively**, you can run each service from your **IDE** (IntelliJ / VS Code) by right-clicking the `*Application.java` main class and selecting "Run". This lets you use breakpoints and hot-reload.
+
+---
+
+### Option B: Fully Dockerized
+
+> ⚠️ **Important:** The Dockerfiles just copy a pre-built JAR file — they do NOT build the code. You must build each service FIRST with Maven.
+
+#### Step 1: Build ALL services (create JAR files)
+
+```bash
+cd "c:\fyp\fyp\testing codes\smart-gas-distribution-platform"
+
+cd discovery-server && mvn clean package -DskipTests && cd ..
+cd user-service && mvn clean package -DskipTests && cd ..
+cd inventory-service && mvn clean package -DskipTests && cd ..
+cd allocation-service && mvn clean package -DskipTests && cd ..
+cd queue-service && mvn clean package -DskipTests && cd ..
+cd notification-service && mvn clean package -DskipTests && cd ..
+cd api-gateway && mvn clean package -DskipTests && cd ..
+```
+
+Each command creates a `target/*.jar` file that the Dockerfile copies:
+```dockerfile
+# What each Dockerfile does — it just copies the JAR, no compilation:
+FROM eclipse-temurin:17-jdk-alpine
+COPY target/user-service-0.0.1-SNAPSHOT.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+#### Step 2: Start EVERYTHING via Docker Compose
+
+```bash
+docker-compose up -d --build
+```
+
+The `--build` flag forces Docker to rebuild images from the Dockerfiles (using the JARs you just built).
+
+#### Step 3: Check all containers are running
+
+```bash
+docker-compose ps
+```
+
+> ⚠️ If you change any Java code, you need to repeat Step 1 (`mvn package`) and then `docker-compose up -d --build` for the changed service.
+
+---
 
 ### Step 4: Verify All Services Registered
 
