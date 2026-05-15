@@ -9,6 +9,20 @@ spring:
     gateway:
       server:
         webmvc:
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:3000"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - "*"
+                allowCredentials: true
           # Auto-discovers services from Eureka
           discovery:
             locator:
@@ -23,6 +37,14 @@ spring:
               uri: lb://user-service        # lb = load balanced via Eureka
               predicates:
                 - Path=/api/v1/users/**
+              filters:
+                - StripPrefix=0
+
+            # ── Inventory Nearby (served by user-service) ─
+            - id: inventory-nearby
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/inventory/nearby
               filters:
                 - StripPrefix=0
 
