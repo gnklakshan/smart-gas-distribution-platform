@@ -1,5 +1,6 @@
 package com.gastracker.inventory_service.service;
 
+import com.gastracker.inventory_service.client.UserClient;
 import com.gastracker.inventory_service.dao.entity.CylinderType;
 import com.gastracker.inventory_service.dao.entity.Inventory;
 import com.gastracker.inventory_service.dao.repository.CylinderTypeRepository;
@@ -7,6 +8,7 @@ import com.gastracker.inventory_service.dao.repository.InventoryRepository;
 import com.gastracker.inventory_service.dto.request.CreateInventoryRequest;
 import com.gastracker.inventory_service.dto.request.UpdateStockRequest;
 import com.gastracker.inventory_service.dto.response.InventoryResponse;
+import com.gastracker.inventory_service.dto.response.UserProfileResponse;
 import com.gastracker.inventory_service.exception.DuplicateResourceException;
 import com.gastracker.inventory_service.exception.ForbiddenOperationException;
 import com.gastracker.inventory_service.exception.ResourceNotFoundException;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,6 +30,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final CylinderTypeRepository cylinderTypeRepository;
     private final InventoryTransformer inventoryTransformer;
+    private final UserClient userClient;
 
     @Transactional
     public InventoryResponse createInventory(CreateInventoryRequest request) {
@@ -65,12 +70,39 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<InventoryResponse> getAvailableInventory() {
-        return inventoryRepository.findByAvailableStockGreaterThan(0).stream()
+    public List<InventoryResponse> getAvailableInventory(String authHeader) {
+        List<Inventory> available = inventoryRepository.findByAvailableStockGreaterThan(0);
+
+        // fetch dealer info once per unique dealerId
+        Map<String, UserProfileResponse> dealerCache = available.stream()
+                .map(Inventory::getDealerId)
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> {
+                            try { return userClient.getUserById(authHeader, id); }
+                            catch (Exception e) {
+                                log.warn("Could not fetch dealer info for dealerId={}: {}", id, e.getMessage());
+                                return null;
+                            }
+                        }
+                ));
+
+        return available.stream()
                 .map(inv -> {
                     String ctName = cylinderTypeRepository.findById(inv.getCylinderTypeId())
                             .map(CylinderType::getName).orElse("Unknown");
-                    return inventoryTransformer.toResponse(inv, ctName);
+                    InventoryResponse resp = inventoryTransformer.toResponse(inv, ctName);
+
+                    UserProfileResponse dealer = dealerCache.get(inv.getDealerId());
+                    if (dealer != null && dealer.getDealer() != null) {
+                        UserProfileResponse.DealerDetail d = dealer.getDealer();
+                        resp.setDealerName(d.getBusinessName());
+                        resp.setAddress(d.getAddress());
+                        resp.setLatitude(d.getLatitude() != null ? d.getLatitude().doubleValue() : null);
+                        resp.setLongitude(d.getLongitude() != null ? d.getLongitude().doubleValue() : null);
+                    }
+                    return resp;
                 })
                 .toList();
     }

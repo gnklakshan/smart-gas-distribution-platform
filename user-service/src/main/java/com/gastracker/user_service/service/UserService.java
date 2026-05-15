@@ -10,6 +10,7 @@ import com.gastracker.user_service.dto.request.RegisterRequest;
 import com.gastracker.user_service.dto.request.UpdateUserRequest;
 import com.gastracker.user_service.client.InventoryClient;
 import com.gastracker.user_service.dto.response.AuthResponse;
+import com.gastracker.user_service.dto.response.FrontendInventoryResponse;
 import com.gastracker.user_service.dto.response.NearbyDealerResponse;
 import com.gastracker.user_service.dto.response.StockInfo;
 import com.gastracker.user_service.dto.response.UserResponse;
@@ -209,6 +210,23 @@ public class UserService {
                             .stock(stock)
                             .build();
                 })
+                .toList();
+    }
+
+    public List<FrontendInventoryResponse> getNearbyInventoryView(double lat, double lng, double radiusKm, String authHeader) {
+        return getNearbyDealers(lat, lng, radiusKm, authHeader).stream()
+                .map(d -> FrontendInventoryResponse.builder()
+                        .id(d.getUserId())
+                        .dealerId(d.getUserId())
+                        .dealerName(d.getBusinessName())
+                        .address(d.getAddress())
+                        .latitude(d.getLatitude())
+                        .longitude(d.getLongitude())
+                        .availableStock(d.getStock().stream()
+                                .mapToInt(s -> s.getAvailableStock() != null ? s.getAvailableStock() : 0)
+                                .sum())
+                        .distanceKm(d.getDistanceKm())
+                        .build())
                 .toList();
     }
 

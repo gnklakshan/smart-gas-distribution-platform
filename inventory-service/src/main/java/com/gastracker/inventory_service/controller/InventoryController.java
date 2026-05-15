@@ -38,8 +38,9 @@ public class InventoryController {
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<InventoryResponse>> getAvailableInventory() {
-        return ResponseEntity.ok(inventoryService.getAvailableInventory());
+    public ResponseEntity<List<InventoryResponse>> getAvailableInventory(
+            @RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(inventoryService.getAvailableInventory(authHeader));
     }
 
     @PutMapping("/{id}/stock")
