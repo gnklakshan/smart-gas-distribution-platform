@@ -5,6 +5,7 @@ import com.gastracker.user_service.dto.request.RegisterDealerRequest;
 import com.gastracker.user_service.dto.request.RegisterRequest;
 import com.gastracker.user_service.dto.request.UpdateUserRequest;
 import com.gastracker.user_service.dto.response.AuthResponse;
+import com.gastracker.user_service.dto.response.NearbyDealerResponse;
 import com.gastracker.user_service.dto.response.UserResponse;
 import com.gastracker.user_service.enums.Role;
 import com.gastracker.user_service.service.UserService;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.List;
 
@@ -72,6 +74,16 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getUsersByRole(@PathVariable Role role) {
         return ResponseEntity.ok(userService.getUsersByRole(role));
+    }
+
+    // Authenticated: search dealers near a GPS coordinate with stock availability
+    @GetMapping("/dealers/nearby")
+    public ResponseEntity<List<NearbyDealerResponse>> getNearbyDealers(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "10") double radius,
+            @RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(userService.getNearbyDealers(lat, lng, radius, authHeader));
     }
 
     // ADMIN only
