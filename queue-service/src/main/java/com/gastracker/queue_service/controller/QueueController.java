@@ -1,6 +1,7 @@
 package com.gastracker.queue_service.controller;
 
 import com.gastracker.queue_service.dto.request.JoinQueueRequest;
+import com.gastracker.queue_service.dto.response.QueueAnalyticsResponse;
 import com.gastracker.queue_service.dto.response.QueueResponse;
 import com.gastracker.queue_service.service.QueueService;
 import jakarta.validation.Valid;
@@ -43,6 +44,20 @@ public class QueueController {
     @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
     public ResponseEntity<List<QueueResponse>> getDealerQueue(@PathVariable String dealerId) {
         return ResponseEntity.ok(queueService.getDealerQueue(dealerId));
+    }
+
+    // ── DEALER: queue analytics for my shop ───────────────────────────────
+    @GetMapping("/dealer/{dealerId}/analytics")
+    @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
+    public ResponseEntity<QueueAnalyticsResponse> getAnalytics(@PathVariable String dealerId) {
+        return ResponseEntity.ok(queueService.getAnalytics(dealerId));
+    }
+
+    // ── DEALER: call the next waiting citizen ─────────────────────────────
+    @PutMapping("/dealer/{dealerId}/call-next")
+    @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
+    public ResponseEntity<QueueResponse> callNext(@PathVariable String dealerId) {
+        return ResponseEntity.ok(queueService.callNext(dealerId));
     }
 
     // ── DEALER: mark citizen as ready for pickup ──────────────────────────

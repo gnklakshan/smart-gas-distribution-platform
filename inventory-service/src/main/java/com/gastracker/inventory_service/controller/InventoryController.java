@@ -3,6 +3,7 @@ package com.gastracker.inventory_service.controller;
 import com.gastracker.inventory_service.dto.request.CreateInventoryRequest;
 import com.gastracker.inventory_service.dto.request.UpdateStockRequest;
 import com.gastracker.inventory_service.dto.response.InventoryResponse;
+import com.gastracker.inventory_service.dto.response.StockHistoryResponse;
 import com.gastracker.inventory_service.service.InventoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,5 +52,14 @@ public class InventoryController {
             Authentication authentication) {
         String dealerId = (String) authentication.getPrincipal();
         return ResponseEntity.ok(inventoryService.updateStock(id, dealerId, request));
+    }
+
+    // ── DEALER: stock change history ───────────────────────────────────────
+    @GetMapping("/dealer/{dealerId}/stock-history")
+    @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
+    public ResponseEntity<List<StockHistoryResponse>> getStockHistory(
+            @PathVariable String dealerId,
+            @RequestParam(defaultValue = "30") int days) {
+        return ResponseEntity.ok(inventoryService.getStockHistory(dealerId, days));
     }
 }

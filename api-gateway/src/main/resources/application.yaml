@@ -23,10 +23,12 @@ spring:
                 allowedHeaders:
                   - "*"
                 allowCredentials: true
-          # Auto-discovers services from Eureka
+          # Auto-discovery disabled — it interleaves with the manual routes below
+          # and breaks the more-specific /api/v1/inventory/nearby route, which must
+          # win over the catch-all /api/v1/inventory/** route for inventory-service.
           discovery:
             locator:
-              enabled: true
+              enabled: false
               lower-case-service-id: true
 
           # Manual routes — explicit control

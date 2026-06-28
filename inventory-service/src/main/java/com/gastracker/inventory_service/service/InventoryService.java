@@ -3,12 +3,16 @@ package com.gastracker.inventory_service.service;
 import com.gastracker.inventory_service.client.UserClient;
 import com.gastracker.inventory_service.dao.entity.CylinderType;
 import com.gastracker.inventory_service.dao.entity.Inventory;
+import com.gastracker.inventory_service.dao.entity.StockHistory;
 import com.gastracker.inventory_service.dao.repository.CylinderTypeRepository;
 import com.gastracker.inventory_service.dao.repository.InventoryRepository;
+import com.gastracker.inventory_service.dao.repository.StockHistoryRepository;
 import com.gastracker.inventory_service.dto.request.CreateInventoryRequest;
 import com.gastracker.inventory_service.dto.request.UpdateStockRequest;
 import com.gastracker.inventory_service.dto.response.InventoryResponse;
+import com.gastracker.inventory_service.dto.response.StockHistoryResponse;
 import com.gastracker.inventory_service.dto.response.UserProfileResponse;
+import com.gastracker.inventory_service.enums.StockChangeReason;
 import com.gastracker.inventory_service.exception.DuplicateResourceException;
 import com.gastracker.inventory_service.exception.ForbiddenOperationException;
 import com.gastracker.inventory_service.exception.ResourceNotFoundException;
@@ -18,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,6 +34,7 @@ public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final CylinderTypeRepository cylinderTypeRepository;
+    private final StockHistoryRepository stockHistoryRepository;
     private final InventoryTransformer inventoryTransformer;
     private final UserClient userClient;
 
@@ -115,9 +121,12 @@ public class InventoryService {
             throw new ForbiddenOperationException("You can only update your own inventory");
         }
 
+        int previousStock = inventory.getAvailableStock();
         inventory.setAvailableStock(request.getAvailableStock());
         CylinderType ct = findCylinderType(inventory.getCylinderTypeId());
-        return inventoryTransformer.toResponse(inventoryRepository.save(inventory), ct.getName());
+        Inventory saved = inventoryRepository.save(inventory);
+        recordStockChange(saved, previousStock, StockChangeReason.MANUAL_UPDATE);
+        return inventoryTransformer.toResponse(saved, ct.getName());
     }
 
     /**
@@ -135,9 +144,11 @@ public class InventoryService {
                             .build());
                 });
 
-        inventory.setAvailableStock(inventory.getAvailableStock() + quantity);
-        inventoryRepository.save(inventory);
-        log.info("Added {} stock for dealer={} cylinderType={}, new total={}", quantity, dealerId, cylinderTypeId, inventory.getAvailableStock());
+        int previousStock = inventory.getAvailableStock();
+        inventory.setAvailableStock(previousStock + quantity);
+        Inventory saved = inventoryRepository.save(inventory);
+        recordStockChange(saved, previousStock, StockChangeReason.ALLOCATION_CONFIRMED);
+        log.info("Added {} stock for dealer={} cylinderType={}, new total={}", quantity, dealerId, cylinderTypeId, saved.getAvailableStock());
     }
 
     /**
@@ -149,10 +160,43 @@ public class InventoryService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Inventory not found for dealer: " + dealerId + " cylinderType: " + cylinderTypeId));
 
-        int newStock = Math.max(0, inventory.getAvailableStock() - quantity);
+        int previousStock = inventory.getAvailableStock();
+        int newStock = Math.max(0, previousStock - quantity);
         inventory.setAvailableStock(newStock);
-        inventoryRepository.save(inventory);
+        Inventory saved = inventoryRepository.save(inventory);
+        recordStockChange(saved, previousStock, StockChangeReason.QUEUE_COMPLETED);
         log.info("Subtracted {} stock for dealer={} cylinderType={}, new total={}", quantity, dealerId, cylinderTypeId, newStock);
+    }
+
+    // ── DEALER: stock change history ───────────────────────────────────────
+    @Transactional(readOnly = true)
+    public List<StockHistoryResponse> getStockHistory(String dealerId, int days) {
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        return stockHistoryRepository.findByDealerIdAndChangedAtAfterOrderByChangedAtDesc(dealerId, since).stream()
+                .map(h -> StockHistoryResponse.builder()
+                        .id(h.getId())
+                        .cylinderTypeId(h.getCylinderTypeId())
+                        .cylinderTypeName(cylinderTypeRepository.findById(h.getCylinderTypeId())
+                                .map(CylinderType::getName).orElse("Unknown"))
+                        .previousStock(h.getPreviousStock())
+                        .newStock(h.getNewStock())
+                        .change(h.getChange())
+                        .reason(h.getReason())
+                        .changedAt(h.getChangedAt())
+                        .build())
+                .toList();
+    }
+
+    private void recordStockChange(Inventory inventory, int previousStock, StockChangeReason reason) {
+        stockHistoryRepository.save(StockHistory.builder()
+                .inventoryId(inventory.getId())
+                .dealerId(inventory.getDealerId())
+                .cylinderTypeId(inventory.getCylinderTypeId())
+                .previousStock(previousStock)
+                .newStock(inventory.getAvailableStock())
+                .change(inventory.getAvailableStock() - previousStock)
+                .reason(reason)
+                .build());
     }
 
     private Inventory findInventory(String id) {
