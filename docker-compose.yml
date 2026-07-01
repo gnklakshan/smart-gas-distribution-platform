@@ -316,7 +316,6 @@ services:
       start_period: 60s
 
   # ── FRONTEND ───────────────────────────────
-
   frontend:
     build:
       context: ../gas-flow-hub

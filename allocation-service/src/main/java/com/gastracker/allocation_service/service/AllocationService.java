@@ -5,6 +5,7 @@ import com.gastracker.allocation_service.dao.repository.AllocationRepository;
 import com.gastracker.allocation_service.dto.request.AllocationRequest;
 import com.gastracker.allocation_service.dto.request.ApproveRequest;
 import com.gastracker.allocation_service.dto.request.RejectRequest;
+import com.gastracker.allocation_service.dto.response.AllocationAnalyticsResponse;
 import com.gastracker.allocation_service.dto.response.AllocationResponse;
 import com.gastracker.allocation_service.enums.AllocationStatus;
 import com.gastracker.allocation_service.event.AllocationApprovedEvent;
@@ -158,6 +159,34 @@ public class AllocationService {
     public List<AllocationResponse> getByDealer(String dealerId) {
         return allocationRepository.findByDealerIdOrderByRequestedAtDesc(dealerId)
                 .stream().map(allocationTransformer::toResponse).toList();
+    }
+
+    // ── DEALER: allocation analytics + fair-distribution comparison ────────
+    public AllocationAnalyticsResponse getAnalytics(String dealerId) {
+        long totalRequested = allocationRepository.countByDealerId(dealerId);
+        long totalApproved = allocationRepository.countByDealerIdAndStatusIn(dealerId, List.of(AllocationStatus.APPROVED, AllocationStatus.DELIVERED));
+        long totalRejected = allocationRepository.countByDealerIdAndStatus(dealerId, AllocationStatus.REJECTED);
+        long pendingCount = allocationRepository.countByDealerIdAndStatus(dealerId, AllocationStatus.PENDING);
+        double fulfillmentRatePct = totalRequested == 0 ? 0 : (totalApproved * 100.0) / totalRequested;
+
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+        int last30DaysApprovedQty = allocationRepository.sumApprovedQuantitySince(dealerId, since);
+
+        List<Object[]> perDealerSums = allocationRepository.sumApprovedQuantitySinceGroupedByDealer(since);
+        double platformAvg = perDealerSums.isEmpty() ? 0 : perDealerSums.stream()
+                .mapToLong(row -> ((Number) row[1]).longValue())
+                .average()
+                .orElse(0);
+
+        return AllocationAnalyticsResponse.builder()
+                .totalRequested(totalRequested)
+                .totalApproved(totalApproved)
+                .totalRejected(totalRejected)
+                .pendingCount(pendingCount)
+                .fulfillmentRatePct(Math.round(fulfillmentRatePct * 10.0) / 10.0)
+                .last30DaysApprovedQty(last30DaysApprovedQty)
+                .platformAvg30DaysApprovedQty(Math.round(platformAvg * 10.0) / 10.0)
+                .build();
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────

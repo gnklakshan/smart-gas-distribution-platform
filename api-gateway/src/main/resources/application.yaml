@@ -9,10 +9,26 @@ spring:
     gateway:
       server:
         webmvc:
-          # Auto-discovers services from Eureka
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:3000"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - "*"
+                allowCredentials: true
+          # Auto-discovery disabled — it interleaves with the manual routes below
+          # and breaks the more-specific /api/v1/inventory/nearby route, which must
+          # win over the catch-all /api/v1/inventory/** route for inventory-service.
           discovery:
             locator:
-              enabled: true
+              enabled: false
               lower-case-service-id: true
 
           # Manual routes — explicit control
@@ -23,6 +39,14 @@ spring:
               uri: lb://user-service        # lb = load balanced via Eureka
               predicates:
                 - Path=/api/v1/users/**
+              filters:
+                - StripPrefix=0
+
+            # ── Inventory Nearby (served by user-service) ─
+            - id: inventory-nearby
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/inventory/nearby
               filters:
                 - StripPrefix=0
 

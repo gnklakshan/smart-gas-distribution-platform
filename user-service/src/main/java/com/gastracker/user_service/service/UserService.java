@@ -8,7 +8,11 @@ import com.gastracker.user_service.dto.request.LoginRequest;
 import com.gastracker.user_service.dto.request.RegisterDealerRequest;
 import com.gastracker.user_service.dto.request.RegisterRequest;
 import com.gastracker.user_service.dto.request.UpdateUserRequest;
+import com.gastracker.user_service.client.InventoryClient;
 import com.gastracker.user_service.dto.response.AuthResponse;
+import com.gastracker.user_service.dto.response.FrontendInventoryResponse;
+import com.gastracker.user_service.dto.response.NearbyDealerResponse;
+import com.gastracker.user_service.dto.response.StockInfo;
 import com.gastracker.user_service.dto.response.UserResponse;
 import com.gastracker.user_service.enums.Role;
 import com.gastracker.user_service.event.DealerRegisteredEvent;
@@ -41,6 +45,7 @@ public class UserService {
     private final UserTransformer userTransformer;
     private final PasswordEncoder passwordEncoder;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final InventoryClient inventoryClient;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -174,6 +179,55 @@ public class UserService {
             throw new ResourceNotFoundException("User not found");
         }
         userRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NearbyDealerResponse> getNearbyDealers(double lat, double lng, double radiusKm, String authHeader) {
+        return dealerRepository.findNearbyDealers(lat, lng, radiusKm).stream()
+                .map(row -> {
+                    String dealerId = (String) row[0];
+
+                    String userId = (String) row[1];
+                    List<StockInfo> stock = List.of();
+                    try {
+                        stock = inventoryClient.getStockByDealer(authHeader, userId)
+                                .stream()
+                                .filter(s -> s.getAvailableStock() != null && s.getAvailableStock() > 0)
+                                .toList();
+                    } catch (Exception e) {
+                        log.warn("Could not fetch stock for dealerId={}: {}", dealerId, e.getMessage());
+                    }
+
+                    return NearbyDealerResponse.builder()
+                            .dealerId(dealerId)
+                            .userId(userId)
+                            .businessName((String) row[2])
+                            .address((String) row[4])
+                            .latitude(row[5] != null ? new java.math.BigDecimal(row[5].toString()) : null)
+                            .longitude(row[6] != null ? new java.math.BigDecimal(row[6].toString()) : null)
+                            .distanceKm(Math.round(((Number) row[7]).doubleValue() * 100.0) / 100.0)
+                            .hasStock(!stock.isEmpty())
+                            .stock(stock)
+                            .build();
+                })
+                .toList();
+    }
+
+    public List<FrontendInventoryResponse> getNearbyInventoryView(double lat, double lng, double radiusKm, String authHeader) {
+        return getNearbyDealers(lat, lng, radiusKm, authHeader).stream()
+                .map(d -> FrontendInventoryResponse.builder()
+                        .id(d.getUserId())
+                        .dealerId(d.getUserId())
+                        .dealerName(d.getBusinessName())
+                        .address(d.getAddress())
+                        .latitude(d.getLatitude())
+                        .longitude(d.getLongitude())
+                        .availableStock(d.getStock().stream()
+                                .mapToInt(s -> s.getAvailableStock() != null ? s.getAvailableStock() : 0)
+                                .sum())
+                        .distanceKm(d.getDistanceKm())
+                        .build())
+                .toList();
     }
 
     // ── Kafka event publishers ──────────────────────────────────────────────

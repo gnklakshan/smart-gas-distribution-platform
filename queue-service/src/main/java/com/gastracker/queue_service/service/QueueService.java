@@ -3,6 +3,7 @@ package com.gastracker.queue_service.service;
 import com.gastracker.queue_service.dao.entity.CitizenQueue;
 import com.gastracker.queue_service.dao.repository.CitizenQueueRepository;
 import com.gastracker.queue_service.dto.request.JoinQueueRequest;
+import com.gastracker.queue_service.dto.response.QueueAnalyticsResponse;
 import com.gastracker.queue_service.dto.response.QueueResponse;
 import com.gastracker.queue_service.enums.QueueStatus;
 import com.gastracker.queue_service.event.QueueCancelledEvent;
@@ -166,6 +167,38 @@ public class QueueService {
     // ── Get single queue entry ────────────────────────────────────────────
     public QueueResponse getById(String id) {
         return queueTransformer.toResponse(findById(id));
+    }
+
+    // ── DEALER: call the next waiting citizen (oldest WAITING -> READY_FOR_PICKUP) ─
+    @Transactional
+    public QueueResponse callNext(String dealerId) {
+        List<CitizenQueue> waiting = queueRepository.findByDealerIdAndStatusOrderByRequestedAtAsc(dealerId, QueueStatus.WAITING);
+        if (waiting.isEmpty()) {
+            throw new ResourceNotFoundException("No citizens waiting in queue");
+        }
+        return markReady(waiting.get(0).getId(), dealerId);
+    }
+
+    // ── DEALER: queue analytics for my shop ───────────────────────────────
+    public QueueAnalyticsResponse getAnalytics(String dealerId) {
+        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
+        long waitingCount = queueRepository.countByDealerIdAndStatus(dealerId, QueueStatus.WAITING);
+        long readyCount = queueRepository.countByDealerIdAndStatus(dealerId, QueueStatus.READY_FOR_PICKUP);
+        long completedToday = queueRepository.countByDealerIdAndStatusAndFulfilledAtAfter(dealerId, QueueStatus.COMPLETED, startOfToday);
+
+        List<CitizenQueue> completed = queueRepository.findByDealerIdAndStatusAndFulfilledAtAfter(
+                dealerId, QueueStatus.COMPLETED, LocalDateTime.now().minusDays(30));
+        Double avgWaitMinutes = completed.isEmpty() ? null : completed.stream()
+                .mapToLong(q -> java.time.Duration.between(q.getRequestedAt(), q.getFulfilledAt()).toMinutes())
+                .average()
+                .orElse(0);
+
+        return QueueAnalyticsResponse.builder()
+                .waitingCount(waitingCount)
+                .readyCount(readyCount)
+                .completedToday(completedToday)
+                .avgWaitMinutes(avgWaitMinutes)
+                .build();
     }
 
     // ── Private helpers ───────────────────────────────────────────────────

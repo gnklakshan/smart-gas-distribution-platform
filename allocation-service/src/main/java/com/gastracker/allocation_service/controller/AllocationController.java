@@ -3,6 +3,7 @@ package com.gastracker.allocation_service.controller;
 import com.gastracker.allocation_service.dto.request.AllocationRequest;
 import com.gastracker.allocation_service.dto.request.ApproveRequest;
 import com.gastracker.allocation_service.dto.request.RejectRequest;
+import com.gastracker.allocation_service.dto.response.AllocationAnalyticsResponse;
 import com.gastracker.allocation_service.dto.response.AllocationResponse;
 import com.gastracker.allocation_service.enums.AllocationStatus;
 import com.gastracker.allocation_service.service.AllocationService;
@@ -95,6 +96,13 @@ public class AllocationController {
     @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
     public ResponseEntity<List<AllocationResponse>> getByDealer(@PathVariable String dealerId) {
         return ResponseEntity.ok(allocationService.getByDealer(dealerId));
+    }
+
+    // ── DEALER: allocation analytics + fair-distribution comparison ───────
+    @GetMapping("/dealer/{dealerId}/analytics")
+    @PreAuthorize("hasRole('DEALER') and #dealerId == authentication.principal")
+    public ResponseEntity<AllocationAnalyticsResponse> getAnalytics(@PathVariable String dealerId) {
+        return ResponseEntity.ok(allocationService.getAnalytics(dealerId));
     }
 
     // ── Any authenticated user: get single allocation by ID ───────────────

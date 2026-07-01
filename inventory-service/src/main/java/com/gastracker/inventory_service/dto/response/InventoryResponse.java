@@ -14,4 +14,9 @@ public class InventoryResponse {
     private String cylinderTypeName;
     private Integer availableStock;
     private LocalDateTime lastUpdated;
+    // enriched dealer info (populated in /available endpoint)
+    private String dealerName;
+    private String address;
+    private Double latitude;
+    private Double longitude;
 }
