@@ -318,7 +318,7 @@ services:
   # ── FRONTEND ───────────────────────────────
   frontend:
     build:
-      context: ../gas-flow-hub
+      context: ../frontend
     container_name: gas-flow-hub-frontend
     ports:
       - "3000:80"
