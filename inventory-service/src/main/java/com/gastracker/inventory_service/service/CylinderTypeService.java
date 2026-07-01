@@ -3,6 +3,7 @@ package com.gastracker.inventory_service.service;
 import com.gastracker.inventory_service.dao.entity.CylinderType;
 import com.gastracker.inventory_service.dao.repository.CylinderTypeRepository;
 import com.gastracker.inventory_service.dto.request.CreateCylinderTypeRequest;
+import com.gastracker.inventory_service.dto.request.UpdateCylinderTypePriceRequest;
 import com.gastracker.inventory_service.dto.response.CylinderTypeResponse;
 import com.gastracker.inventory_service.exception.DuplicateResourceException;
 import com.gastracker.inventory_service.exception.ResourceNotFoundException;
@@ -29,6 +30,7 @@ public class CylinderTypeService {
         CylinderType cylinderType = CylinderType.builder()
                 .name(request.getName())
                 .capacityKg(request.getCapacityKg())
+                .price(request.getPrice())
                 .build();
 
         return inventoryTransformer.toResponse(cylinderTypeRepository.save(cylinderType));
@@ -46,5 +48,13 @@ public class CylinderTypeService {
         CylinderType ct = cylinderTypeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cylinder type not found: " + id));
         return inventoryTransformer.toResponse(ct);
+    }
+
+    @Transactional
+    public CylinderTypeResponse updatePrice(String id, UpdateCylinderTypePriceRequest request) {
+        CylinderType ct = cylinderTypeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cylinder type not found: " + id));
+        ct.setPrice(request.getPrice());
+        return inventoryTransformer.toResponse(cylinderTypeRepository.save(ct));
     }
 }

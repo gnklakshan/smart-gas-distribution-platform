@@ -1,14 +1,15 @@
 -- Seed cylinder_types table
-INSERT INTO cylinder_types (id, name, capacity_kg)
+INSERT INTO cylinder_types (id, name, capacity_kg, price)
 VALUES
-    ('ct111111-1111-1111-1111-111111111111', '12.5kg Domestic', 12.5),
-    ('ct222222-2222-2222-2222-222222222222', '5kg Domestic', 5.0),
-    ('ct333333-3333-3333-3333-333333333333', '2.3kg Camping', 2.3),
-    ('ct444444-4444-4444-4444-444444444444', '37.5kg Commercial', 37.5)
+    ('ct111111-1111-1111-1111-111111111111', '12.5kg Domestic', 12.5, 4300.00),
+    ('ct222222-2222-2222-2222-222222222222', '5kg Domestic', 5.0, 1900.00),
+    ('ct333333-3333-3333-3333-333333333333', '2.3kg Camping', 2.3, 1100.00),
+    ('ct444444-4444-4444-4444-444444444444', '37.5kg Commercial', 37.5, 11800.00)
 ON CONFLICT (id) DO UPDATE
 SET
     name = EXCLUDED.name,
-    capacity_kg = EXCLUDED.capacity_kg;
+    capacity_kg = EXCLUDED.capacity_kg,
+    price = EXCLUDED.price;
 
 -- Seed inventory table (per dealer, per cylinder type)
 INSERT INTO inventory (

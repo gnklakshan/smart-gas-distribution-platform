@@ -25,4 +25,7 @@ public class CylinderType {
 
     @Column(nullable = false)
     private BigDecimal capacityKg;
+
+    @Column(nullable = false, columnDefinition = "numeric(19,2) DEFAULT 0")
+    private BigDecimal price;
 }

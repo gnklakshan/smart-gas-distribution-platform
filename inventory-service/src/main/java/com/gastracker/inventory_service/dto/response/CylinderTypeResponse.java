@@ -11,4 +11,5 @@ public class CylinderTypeResponse {
     private String id;
     private String name;
     private BigDecimal capacityKg;
+    private BigDecimal price;
 }

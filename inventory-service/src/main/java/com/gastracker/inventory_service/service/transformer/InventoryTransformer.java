@@ -25,6 +25,7 @@ public class InventoryTransformer {
                 .id(cylinderType.getId())
                 .name(cylinderType.getName())
                 .capacityKg(cylinderType.getCapacityKg())
+                .price(cylinderType.getPrice())
                 .build();
     }
 }
