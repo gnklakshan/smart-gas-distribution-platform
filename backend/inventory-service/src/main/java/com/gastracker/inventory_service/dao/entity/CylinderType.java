@@ -25,4 +25,7 @@ public class CylinderType {
 
     @Column(nullable = false)
     private BigDecimal capacityKg;
+
+    @Column(nullable = false)
+    private BigDecimal price;   // LKR, admin-editable; applies to all future allocations once changed
 }

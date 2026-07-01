@@ -14,4 +14,7 @@ public class CreateCylinderTypeRequest {
 
     @NotNull(message = "capacityKg is required")
     private BigDecimal capacityKg;
+
+    @NotNull(message = "price is required")
+    private BigDecimal price;
 }

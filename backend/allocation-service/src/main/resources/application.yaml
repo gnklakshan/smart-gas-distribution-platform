@@ -40,6 +40,11 @@ jwt:
   secret: your-256-bit-secret-key-here-make-it-long
   expiration: 86400000
 
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  currency: lkr
+
 # Feign + Resilience4j circuit breaker
 spring.cloud.openfeign.circuitbreaker.enabled: true
 

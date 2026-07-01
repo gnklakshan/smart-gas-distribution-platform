@@ -137,6 +137,29 @@ public class KafkaEventConsumer {
         }
     }
 
+    // ── Payment Events ──────────────────────────────────────────────────────
+
+    @KafkaListener(topics = "payment.confirmed", groupId = "notification-service")
+    public void handlePaymentConfirmed(Map<String, Object> event) {
+        try {
+            String dealerId = (String) event.get("dealerId");
+            String allocationId = (String) event.get("allocationId");
+            Object amount = event.get("amount");
+            String currency = ((String) event.get("currency")).toUpperCase();
+
+            notificationService.createNotification(
+                    dealerId,
+                    NotificationType.PAYMENT_CONFIRMED,
+                    "Payment Received",
+                    "Your payment of " + amount + " " + currency + " for allocation " + allocationId + " has been confirmed.",
+                    allocationId,
+                    "ALLOCATION"
+            );
+        } catch (Exception e) {
+            log.error("Error processing payment.confirmed event: {}", e.getMessage(), e);
+        }
+    }
+
     // ── Queue Events ────────────────────────────────────────────────────────
 
     @KafkaListener(topics = "queue.joined", groupId = "notification-service")

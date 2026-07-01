@@ -47,6 +47,20 @@ export interface CylinderType {
   id: string;
   name: string;
   capacityKg: number;
+  price: number;
+}
+
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED";
+
+export interface Payment {
+  id: string;
+  allocationId: string;
+  amount: number;
+  currency: string;
+  clientSecret: string;
+  status: PaymentStatus;
+  createdAt: string;
+  paidAt?: string;
 }
 
 export type AllocationStatus = "PENDING" | "APPROVED" | "REJECTED" | "DELIVERED";

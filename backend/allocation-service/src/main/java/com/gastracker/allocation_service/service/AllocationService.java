@@ -38,6 +38,7 @@ public class AllocationService {
     private final AllocationRepository allocationRepository;
     private final AllocationTransformer allocationTransformer;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final PaymentService paymentService;
 
     // ── DEALER: submit a new gas allocation request ────────────────────────
     @Transactional
@@ -122,6 +123,9 @@ public class AllocationService {
         }
         if (allocation.getStatus() != AllocationStatus.APPROVED) {
             throw new InvalidStateException("Only APPROVED allocations can be confirmed. Current status: " + allocation.getStatus());
+        }
+        if (!paymentService.isPaid(id)) {
+            throw new InvalidStateException("Payment must be completed before delivery can be confirmed");
         }
 
         allocation.setStatus(AllocationStatus.DELIVERED);

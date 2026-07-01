@@ -17,9 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PaymentDialog } from "@/components/PaymentDialog";
 import {
   api, type Allocation, type AllocationAnalytics, type CylinderType,
-  type InventoryRecord, type QueueAnalytics, type QueueEntry, type StockHistoryEntry,
+  type InventoryRecord, type Payment, type QueueAnalytics, type QueueEntry, type StockHistoryEntry,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -442,6 +443,8 @@ function AllocationsTab() {
   const [qty, setQty] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [paidAllocationIds, setPaidAllocationIds] = useState<Set<string>>(new Set());
+  const [payingAllocationId, setPayingAllocationId] = useState<string | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -453,6 +456,18 @@ function AllocationsTab() {
       ]);
       setItems(allocs);
       setCylinderTypes(types);
+
+      const approved = allocs.filter((a) => a.status === "APPROVED");
+      const results = await Promise.all(
+        approved.map((a) =>
+          api<Payment>(`/api/v1/payments/allocations/${a.id}`).catch(() => null),
+        ),
+      );
+      setPaidAllocationIds(new Set(
+        results
+          .filter((p): p is Payment => p !== null && p.status === "PAID")
+          .map((p) => p.allocationId),
+      ));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load allocations");
     } finally { setLoading(false); }
@@ -549,9 +564,15 @@ function AllocationsTab() {
                       <TableCell className="text-xs">{new Date(a.requestedAt).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
                         {a.status === "APPROVED" && (
-                          <Button size="sm" onClick={() => confirm(a.id)}>
-                            <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirm
-                          </Button>
+                          paidAllocationIds.has(a.id) ? (
+                            <Button size="sm" onClick={() => confirm(a.id)}>
+                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirm
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => setPayingAllocationId(a.id)}>
+                              Pay now
+                            </Button>
+                          )
                         )}
                       </TableCell>
                     </TableRow>
@@ -562,6 +583,15 @@ function AllocationsTab() {
           )}
         </CardContent>
       </Card>
+
+      {payingAllocationId && (
+        <PaymentDialog
+          allocationId={payingAllocationId}
+          open={!!payingAllocationId}
+          onOpenChange={(open) => { if (!open) setPayingAllocationId(null); }}
+          onPaid={() => { setPayingAllocationId(null); load(); }}
+        />
+      )}
     </div>
   );
 }

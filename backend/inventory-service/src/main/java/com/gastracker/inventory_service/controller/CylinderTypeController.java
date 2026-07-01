@@ -1,6 +1,7 @@
 package com.gastracker.inventory_service.controller;
 
 import com.gastracker.inventory_service.dto.request.CreateCylinderTypeRequest;
+import com.gastracker.inventory_service.dto.request.UpdateCylinderPriceRequest;
 import com.gastracker.inventory_service.dto.response.CylinderTypeResponse;
 import com.gastracker.inventory_service.service.CylinderTypeService;
 import jakarta.validation.Valid;
@@ -33,5 +34,14 @@ public class CylinderTypeController {
     @GetMapping("/{id}")
     public ResponseEntity<CylinderTypeResponse> getById(@PathVariable String id) {
         return ResponseEntity.ok(cylinderTypeService.getById(id));
+    }
+
+    // ── ADMIN: update price — applies to all future allocations once changed ──
+    @PatchMapping("/{id}/price")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CylinderTypeResponse> updatePrice(
+            @PathVariable String id,
+            @Valid @RequestBody UpdateCylinderPriceRequest request) {
+        return ResponseEntity.ok(cylinderTypeService.updatePrice(id, request));
     }
 }

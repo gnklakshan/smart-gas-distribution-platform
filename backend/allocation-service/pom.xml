@@ -73,6 +73,13 @@
 			<artifactId>spring-kafka</artifactId>
 		</dependency>
 
+		<!-- Stripe -->
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>29.0.0</version>
+		</dependency>
+
 		<!-- Service Discovery + Feign -->
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
