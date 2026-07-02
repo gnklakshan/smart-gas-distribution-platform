@@ -53,9 +53,11 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserById(userId));
     }
 
-    // Authenticated: ADMIN can fetch anyone; CITIZEN/DEALER can only fetch their own
+    // Authenticated: ADMIN can fetch anyone; any user can fetch their own record or a dealer's
+    // (dealer business info is effectively a public storefront profile, needed by citizens
+    // to resolve dealer names for queue entries, etc.)
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal")
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal or @userSecurity.isDealer(#id)")
     public ResponseEntity<UserResponse> getUserById(@PathVariable String id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
