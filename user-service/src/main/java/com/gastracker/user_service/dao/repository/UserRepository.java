@@ -13,4 +13,5 @@ public interface UserRepository extends JpaRepository<User, String> {
     Optional<User> findByNic(String nic);
     boolean existsByNic(String nic);
     List<User> findByRole(Role role);
+    boolean existsByIdAndRole(String id, Role role);
 }
